@@ -2,12 +2,13 @@
 #include "emacs_module.h"
 #include "lisp.h"
 #include <ffi.h>
-#include <ltdl.h>
+// #include <ltdl.h>
+#include <dlfcn.h>
 
 int plugin_is_GPL_compatible;
 
-static lt_dlhandle self_handle;
 static emacs_value nil;
+static emacs_value make_bool_vector;
 
 #define ARRAY_SIZE(x) (sizeof (x) / sizeof (x[0]))
 
@@ -68,8 +69,11 @@ static struct type_descriptor type_descriptors[] =
 static emacs_value
 wrap_pointer (emacs_env *env, void *ptr)
 {
-  Lisp_Object result = make_uninit_bool_vector (sizeof (ptr)
-						* BOOL_VECTOR_BITS_PER_CHAR);
+  emacs_value len = env->make_fixnum (env, sizeof (ptr)
+				      * BOOL_VECTOR_BITS_PER_CHAR);
+  emacs_value args[2] = { len, nil };
+  Lisp_Object result = (Lisp_Object) env->funcall (env, make_bool_vector,
+						   2, args);
   memcpy (bool_vector_uchar_data (result), &ptr, sizeof (ptr));
   return (emacs_value) result;
 }
@@ -91,9 +95,9 @@ static emacs_value
 ffi_dlopen (emacs_env *env, int nargs, emacs_value args[])
 {
   Lisp_Object file = (Lisp_Object) /*FIXME*/ args[0];
-  lt_dlhandle handle;
+  void */* lt_dlhandle */ handle;
   CHECK_STRING (file);
-  handle = lt_dlopen (SDATA (file));
+  handle = /* lt_dlopen */ dlopen(SDATA (file), RTLD_LAZY);
   if (!handle)
     error ("Cannot load file %s", SDATA (file));
   return wrap_pointer (env, handle);
@@ -104,25 +108,31 @@ static emacs_value
 ffi_dlsym (emacs_env *env, int nargs, emacs_value args[])
 {
   Lisp_Object lsym = (Lisp_Object) /*FIXME*/ args[0];
-  lt_dlhandle handle;
+  /* lt_dlhandle */ void *handle;
   void *sym;
   CHECK_STRING (lsym);
-  if (nargs == 1)
-    handle = self_handle;
-  else
-    handle = unwrap_pointer (env, args[1]);
-  sym = lt_dlsym (handle, SDATA (lsym));
+  handle = unwrap_pointer (env, args[1]);
+
+  size_t length = 0;
+  env->copy_string_contents (env, args[0], NULL, &length);
+  char *name = malloc (length);
+  env->copy_string_contents (env, args[0], name, &length);
+
+  sym = /* lt_ */dlsym (handle, name);
+  free (name);
+
   if (sym == NULL)
     return nil;
   return wrap_pointer (env, sym);
 }
 
 static ffi_type *
-convert_type_from_lisp (emacs_env *env, emacs_value type)
+convert_type_from_lisp (emacs_env *env, emacs_value ev_type)
 {
+  Lisp_Object type = (Lisp_Object) /*FIXME*/ ev_type;
   unsigned int i;
   for (i = 0; i < ARRAY_SIZE (type_descriptors); ++i)
-    if (EQ (type, type_descriptors[i].value))
+    if (EQ (type, (Lisp_Object) type_descriptors[i].value))
       return type_descriptors[i].type;
   return NULL;
 }
@@ -355,7 +365,7 @@ struct descriptor
 static const struct descriptor exports[] =
 {
   { "ffi--dlopen", 1, 1, ffi_dlopen },
-  { "ffi--dlsym", 1, 2, ffi_dlsym },
+  { "ffi--dlsym", 2, 2, ffi_dlsym },
   { "ffi--prep-cif", 1, -1, module_ffi_prep_cif },
   { "ffi--call", 4, -1, module_ffi_call },
   { "ffi--free", 1, 1, module_ffi_free },
@@ -370,13 +380,19 @@ emacs_module_init (struct emacs_runtime *runtime)
   unsigned int i;
   emacs_env *env = runtime->get_environment (runtime);
 
-  self_handle = lt_dlopen (NULL);
   nil = env->intern (env, "nil");
+  env->make_global_ref (env, nil);
+
+  make_bool_vector = env->intern (env, "make-bool-vector");
+  env->make_global_ref (env, make_bool_vector);
 
   emacs_value fset = env->intern (env, "fset");
 
   for (i = 0; i < ARRAY_SIZE (type_descriptors); ++i)
-    type_descriptors[i].value =env->intern (env, exports[i].name);
+    {
+      type_descriptors[i].value = env->intern (env, type_descriptors[i].name);
+      env->make_global_ref (env, type_descriptors[i].value);
+    }
 
   for (i = 0; i < ARRAY_SIZE (exports); ++i)
     {

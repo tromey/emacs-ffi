@@ -72,10 +72,10 @@ Currently all type conversions work the same in both directions.
 * `(ffi--dlopen STR)`.  A simple wrapper for `dlopen` (actually
   `lt_dlopen`).  This returns the library handle, a C pointer.
 
-* `(ffi--dlsym STR &optional HANDLE)`.  A simple wrapper for `dlsym`
-  (actually `lt_dlsym`).  This finds the C symbol named STR in a
-  library.  If HANDLE is given, it is used; otherwise the symbol is
-  looked for in the main executable.
+* `(ffi--dlsym STR HANDLE)`.  A simple wrapper for `dlsym` (actually
+  `lt_dlsym`).  This finds the C symbol named STR in a library.
+  HANDLE is a library handle, as returned by a function defined by
+  `define-ffi-library`.
 
   This returns a C pointer to the indicated symbol, or `nil` if it
   can't be found.  These pointers need not be freed.
