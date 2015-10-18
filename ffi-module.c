@@ -2,8 +2,7 @@
 #include "emacs_module.h"
 #include "lisp.h"
 #include <ffi.h>
-// #include <ltdl.h>
-#include <dlfcn.h>
+#include <ltdl.h>
 
 int plugin_is_GPL_compatible;
 
@@ -92,12 +91,13 @@ unwrap_pointer (emacs_env *env, emacs_value v)
 
 /* (ffi--dlopen str) */
 static emacs_value
-ffi_dlopen (emacs_env *env, int nargs, emacs_value args[])
+ffi_dlopen (emacs_env *env, int nargs, emacs_value args[], void *ignore)
 {
   Lisp_Object file = (Lisp_Object) /*FIXME*/ args[0];
-  void */* lt_dlhandle */ handle;
+  lt_dlhandle handle;
   CHECK_STRING (file);
-  handle = /* lt_dlopen */ dlopen(SDATA (file), RTLD_LAZY);
+  handle = lt_dlopenext ((char *) SDATA (file));
+  // FIXME lt_dlerror
   if (!handle)
     error ("Cannot load file %s", SDATA (file));
   return wrap_pointer (env, handle);
@@ -105,10 +105,10 @@ ffi_dlopen (emacs_env *env, int nargs, emacs_value args[])
 
 /* (ffi--dlsym symbol-name &optional handle) */
 static emacs_value
-ffi_dlsym (emacs_env *env, int nargs, emacs_value args[])
+ffi_dlsym (emacs_env *env, int nargs, emacs_value args[], void *ignore)
 {
   Lisp_Object lsym = (Lisp_Object) /*FIXME*/ args[0];
-  /* lt_dlhandle */ void *handle;
+  lt_dlhandle handle;
   void *sym;
   CHECK_STRING (lsym);
   handle = unwrap_pointer (env, args[1]);
@@ -118,7 +118,7 @@ ffi_dlsym (emacs_env *env, int nargs, emacs_value args[])
   char *name = malloc (length);
   env->copy_string_contents (env, args[0], name, &length);
 
-  sym = /* lt_ */dlsym (handle, name);
+  sym = lt_dlsym (handle, name);
   free (name);
 
   if (sym == NULL)
@@ -139,7 +139,7 @@ convert_type_from_lisp (emacs_env *env, emacs_value ev_type)
 
 /* (ffi--prep-cif return-type arg-types &optional n-fixed-args) */
 static emacs_value
-module_ffi_prep_cif (emacs_env *env, int nargs, emacs_value args[])
+module_ffi_prep_cif (emacs_env *env, int nargs, emacs_value args[], void *ignore)
 {
   unsigned int i;
   ffi_type *return_type;
@@ -262,7 +262,7 @@ convert_to_lisp (emacs_env *env, emacs_value lisp_type, union holder value)
 
 /* (ffi--call cif function return-type arg-types &rest args) */
 static emacs_value
-module_ffi_call (emacs_env *env, int nargs, emacs_value *args)
+module_ffi_call (emacs_env *env, int nargs, emacs_value *args, void *ignore)
 {
   ffi_cif *cif = unwrap_pointer (env, args[0]);
   void *fn = unwrap_pointer (env, args[1]);
@@ -308,7 +308,7 @@ module_ffi_call (emacs_env *env, int nargs, emacs_value *args)
 
 /* (ffi--free pointer) */
 static emacs_value
-module_ffi_free (emacs_env *env, int nargs, emacs_value *args)
+module_ffi_free (emacs_env *env, int nargs, emacs_value *args, void *ignore)
 {
   void *ptr = unwrap_pointer (env, args[0]);
   free (ptr);
@@ -317,7 +317,7 @@ module_ffi_free (emacs_env *env, int nargs, emacs_value *args)
 
 /* (ffi--mem-ref POINTER SIZE) */
 static emacs_value
-module_ffi_mem_ref (emacs_env *env, int nargs, emacs_value *args)
+module_ffi_mem_ref (emacs_env *env, int nargs, emacs_value *args, void *ignore)
 {
   void *ptr = unwrap_pointer (env, args[0]);
   int64_t len = env->fixnum_to_int (env, args[1]);
@@ -326,7 +326,7 @@ module_ffi_mem_ref (emacs_env *env, int nargs, emacs_value *args)
 
 /* (ffi--mem-set POINTER DATA) */
 static emacs_value
-module_ffi_mem_set (emacs_env *env, int nargs, emacs_value *args)
+module_ffi_mem_set (emacs_env *env, int nargs, emacs_value *args, void *ignore)
 {
   void *ptr = unwrap_pointer (env, args[0]);
   Lisp_Object str = (Lisp_Object) args[2];
@@ -337,7 +337,8 @@ module_ffi_mem_set (emacs_env *env, int nargs, emacs_value *args)
 
 /* (ffi--pointer+ POINTER NUM) */
 static emacs_value
-module_ffi_pointer_plus (emacs_env *env, int nargs, emacs_value *args)
+module_ffi_pointer_plus (emacs_env *env, int nargs, emacs_value *args,
+			 void *ignore)
 {
   char *ptr;
 
@@ -380,6 +381,8 @@ emacs_module_init (struct emacs_runtime *runtime)
   unsigned int i;
   emacs_env *env = runtime->get_environment (runtime);
 
+  lt_dlinit ();
+
   nil = env->intern (env, "nil");
   env->make_global_ref (env, nil);
 
@@ -397,7 +400,8 @@ emacs_module_init (struct emacs_runtime *runtime)
   for (i = 0; i < ARRAY_SIZE (exports); ++i)
     {
       emacs_value func = env->make_function (env, exports[i].min,
-					     exports[i].max, exports[i].subr);
+					     exports[i].max, exports[i].subr,
+					     NULL);
       emacs_value sym = env->intern (env, exports[i].name);
 
       emacs_value args[2] = { sym, func };
