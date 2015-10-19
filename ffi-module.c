@@ -182,7 +182,7 @@ convert_from_lisp (emacs_env *env, emacs_value e_type, emacs_value ev)
   Lisp_Object value = (Lisp_Object) /*FIXME*/ ev;
 
 #define MAYBE_NUMBER(ftype, field)		\
-  else if (type = &ffi_type_ ## ftype)		\
+  else if (type == &ffi_type_ ## ftype)		\
     {						\
       CHECK_NUMBER (value);			\
       result.field = XINT (value);		\
@@ -226,7 +226,7 @@ convert_to_lisp (emacs_env *env, emacs_value lisp_type, union holder value)
   emacs_value result;
 
 #define MAYBE_NUMBER(ftype, field)		\
-  else if (type = &ffi_type_ ## ftype)		\
+  else if (type == &ffi_type_ ## ftype)		\
     result = env->make_fixnum (env, value.field);
 
   if (type == &ffi_type_void)
@@ -356,6 +356,16 @@ module_ffi_pointer_plus (emacs_env *env, int nargs, emacs_value *args,
   return wrap_pointer (env, ptr);
 }
 
+/* (ffi-get-c-string POINTER) */
+static emacs_value
+module_ffi_get_c_string (emacs_env *env, int nargs, emacs_value *args,
+			 void *ignore)
+{
+  char *ptr = unwrap_pointer (env, args[0]);
+  size_t len = strlen (ptr);
+  return env->make_string (env, ptr, len);
+}
+
 struct descriptor
 {
   const char *name;
@@ -372,7 +382,8 @@ static const struct descriptor exports[] =
   { "ffi--free", 1, 1, module_ffi_free },
   { "ffi--mem-ref", 2, 2, module_ffi_mem_ref },
   { "ffi--mem-set", 3, 3, module_ffi_mem_set },
-  { "ffi-pointer+", 2, 2, module_ffi_pointer_plus }
+  { "ffi-pointer+", 2, 2, module_ffi_pointer_plus },
+  { "ffi-get-c-string", 1, 1, module_ffi_get_c_string }
 };
 
 int

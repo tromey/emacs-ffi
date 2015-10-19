@@ -23,7 +23,9 @@ Primitive types are described using keywords:
   `:long`.  Signed or unsigned integers corresponding to the C type of
   the same name.
 
-* `:pointer`.  An C pointer type.  Pointers currently aren't typed.
+* `:pointer`.  A C pointer type.  Pointers currently aren't typed, in
+  the sense that they aren't differentiated based on what they point
+  to.
 
 # Type Conversions
 
@@ -118,6 +120,9 @@ Currently all type conversions work the same in both directions.
 
 * `(ffi--pointer+ POINTER NUMBER)`.  Pointer math in Lisp.
 
+* `(ffi-get-c-string POINTER)`.  Assume the pointer points to a C
+  string, and return a Lisp string with those contents.
+
 # Partial To-Do List
 
 * Add nice support for varargs calls.  The main issue is that the
@@ -132,7 +137,10 @@ Currently all type conversions work the same in both directions.
 
 * Make C functions from Lisp using the libffi closure API.
 
-* An easy way to get a C string.
+* Add a :c-string type; for arguments this would be `const char *`
+  and for results it would automatically wrap as a new C string.
+  One issue is for results you may want to automatically free the
+  returned pointer, so this would require some extra info.
 
 * Typed pointers.
 
