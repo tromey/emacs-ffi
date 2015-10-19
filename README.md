@@ -125,6 +125,10 @@ Currently all type conversions work the same in both directions.
 
 # Partial To-Do List
 
+* Use the module API properly and avoid things like the
+  `CHECK_BOOL_VECTOR` call.  Some of these don't actually work on
+  failure because Emacs doesn't use `-export-dynamic`.
+
 * Add nice support for varargs calls.  The main issue is that the
   types have to be described at each call, and it would be good to
   have an easy way to describe this in Lisp.
@@ -137,10 +141,10 @@ Currently all type conversions work the same in both directions.
 
 * Make C functions from Lisp using the libffi closure API.
 
-* Add a :c-string type; for arguments this would be `const char *`
-  and for results it would automatically wrap as a new C string.
-  One issue is for results you may want to automatically free the
-  returned pointer, so this would require some extra info.
+* Add a `:c-string` type; for arguments this would be `const char *`
+  and for results it would automatically wrap as a new C string.  One
+  issue is for results you may want to automatically free the returned
+  pointer, so this would require some extra info.
 
 * Typed pointers.
 
