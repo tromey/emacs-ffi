@@ -113,8 +113,6 @@ Currently all type conversions work the same in both directions.
   be useful in conjunction with the `bindat` package for unpacking C
   structures.
 
-  I may add a simple way to fetch C strings from memory.
-
 * `(ffi--mem-set POINTER STRING)`.  Copy the contents of STRING to the
   memory at POINTER.
 
