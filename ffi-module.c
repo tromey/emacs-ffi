@@ -7,6 +7,7 @@
 int plugin_is_GPL_compatible;
 
 static emacs_value nil;
+static emacs_value eq;
 static emacs_value make_bool_vector;
 
 #define ARRAY_SIZE(x) (sizeof (x) / sizeof (x[0]))
@@ -110,11 +111,15 @@ ffi_dlsym (emacs_env *env, int nargs, emacs_value args[], void *ignore)
 static ffi_type *
 convert_type_from_lisp (emacs_env *env, emacs_value ev_type)
 {
-  Lisp_Object type = (Lisp_Object) /*FIXME*/ ev_type;
+  emacs_value type = ev_type;
   unsigned int i;
   for (i = 0; i < ARRAY_SIZE (type_descriptors); ++i)
-    if (EQ (type, (Lisp_Object) type_descriptors[i].value))
-      return type_descriptors[i].type;
+    {
+      emacs_value args[2] = { type, type_descriptors[i].value };
+      /* FIXME this would be nice as a module method.  */
+      if (env->funcall (env, eq, 2, args))
+	return type_descriptors[i].type;
+    }
   return NULL;
 }
 
@@ -365,8 +370,8 @@ emacs_module_init (struct emacs_runtime *runtime)
 
   lt_dlinit ();
 
-  nil = env->intern (env, "nil");
-  env->make_global_ref (env, nil);
+  nil = env->make_global_ref (env, env->intern (env, "nil"));
+  eq = env->make_global_ref (env, env->intern (env, "eq"));
 
   make_bool_vector = env->intern (env, "make-bool-vector");
   env->make_global_ref (env, make_bool_vector);
