@@ -375,9 +375,8 @@ emacs_module_init (struct emacs_runtime *runtime)
 
   nil = env->make_global_ref (env, env->intern (env, "nil"));
   eq = env->make_global_ref (env, env->intern (env, "eq"));
-
-  make_bool_vector = env->intern (env, "make-bool-vector");
-  env->make_global_ref (env, make_bool_vector);
+  make_bool_vector
+    = env->make_global_ref (env, env->intern (env, "make-bool-vector"));
 
   emacs_value fset = env->intern (env, "fset");
 
