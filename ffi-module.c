@@ -139,6 +139,7 @@ module_ffi_prep_cif (emacs_env *env, int nargs, emacs_value args[], void *ignore
 
   return_type = convert_type_from_lisp (env, args[0]);
 
+  /* FIXME the module API should have some vector stuff */
   CHECK_VECTOR (typevec);
   n_types = ASIZE (typevec);
   arg_types = malloc (n_types * sizeof (ffi_type *));
