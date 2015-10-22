@@ -75,13 +75,20 @@ null_finalizer (void *ptr)
 static emacs_value
 ffi_dlopen (emacs_env *env, int nargs, emacs_value args[], void *ignore)
 {
-  Lisp_Object file = (Lisp_Object) /*FIXME*/ args[0];
   lt_dlhandle handle;
-  CHECK_STRING (file);
-  handle = lt_dlopenext ((char *) SDATA (file));
+
+  size_t length = 0;
+  env->copy_string_contents (env, args[0], NULL, &length);
+  char *name = malloc (length);
+  env->copy_string_contents (env, args[0], name, &length);
+
+  handle = lt_dlopenext (name);
+  free (name);
+
   // FIXME lt_dlerror
+  // FIXME use NAME here in the error
   if (!handle)
-    error ("Cannot load file %s", SDATA (file));
+    error ("cannot dlopen file");
   return env->make_user_ptr (env, null_finalizer, handle);
 }
 
