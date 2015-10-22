@@ -87,8 +87,8 @@ Currently all type conversions work the same in both directions.
   RETURN-TYPE is the return type; ARG-TYPES is a vector of argument
   types.  If given, N-FIXED-ARGS is an integer holding the number of
   fixed args.  Its presence, even if 0, means that a varargs call is
-  being made.  This function returns a C pointer, which should be
-  freed using `ffi--free` when done.
+  being made.  This function returns a C pointer wrapped in a Lisp
+  object; the garbage collector will handle any needed finalization.
 
 * `(ffi--call CIF FUNCTION RETURN-TYPE ARG-TYPES &rest ARGS)`.  Make
   an FFI call.
@@ -103,10 +103,6 @@ Currently all type conversions work the same in both directions.
   into `ffi--call`.
 
   ARGS are the arguments to pass to FUNCTION.
-
-* `(ffi--free POINTER)`.  This calls `free` on the pointer.  This is
-  defined explicitly because it is used by the Lisp code included in
-  the package.
 
 * `(ffi--mem-ref POINTER SIZE)`.  Read SIZE bytes of memory starting
   at POINTER.  The bytes are returned in a unibyte string.  This can

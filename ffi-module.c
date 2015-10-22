@@ -65,28 +65,9 @@ static struct type_descriptor type_descriptors[] =
   { ":pointer", &ffi_type_pointer }
 };
 
-static emacs_value
-wrap_pointer (emacs_env *env, void *ptr)
+static void
+null_finalizer (void *ptr)
 {
-  emacs_value len = env->make_fixnum (env, sizeof (ptr)
-				      * BOOL_VECTOR_BITS_PER_CHAR);
-  emacs_value args[2] = { len, nil };
-  Lisp_Object result = (Lisp_Object) env->funcall (env, make_bool_vector,
-						   2, args);
-  memcpy (bool_vector_uchar_data (result), &ptr, sizeof (ptr));
-  return (emacs_value) result;
-}
-
-static void *
-unwrap_pointer (emacs_env *env, emacs_value v)
-{
-  Lisp_Object value = (Lisp_Object) v;
-  void *result;
-  CHECK_BOOL_VECTOR (value);
-  if (bool_vector_size (value) != sizeof (result) * BOOL_VECTOR_BITS_PER_CHAR)
-    args_out_of_range (value, (Lisp_Object) /*FIXME*/ nil);
-  memcpy (&result, bool_vector_uchar_data (value), sizeof (result));
-  return result;
 }
 
 /* (ffi--dlopen str) */
@@ -100,7 +81,7 @@ ffi_dlopen (emacs_env *env, int nargs, emacs_value args[], void *ignore)
   // FIXME lt_dlerror
   if (!handle)
     error ("Cannot load file %s", SDATA (file));
-  return wrap_pointer (env, handle);
+  return env->make_user_ptr (env, null_finalizer, handle);
 }
 
 /* (ffi--dlsym symbol-name &optional handle) */
@@ -111,7 +92,7 @@ ffi_dlsym (emacs_env *env, int nargs, emacs_value args[], void *ignore)
   lt_dlhandle handle;
   void *sym;
   CHECK_STRING (lsym);
-  handle = unwrap_pointer (env, args[1]);
+  handle = env->get_user_ptr_ptr (env, args[1]);
 
   size_t length = 0;
   env->copy_string_contents (env, args[0], NULL, &length);
@@ -123,7 +104,7 @@ ffi_dlsym (emacs_env *env, int nargs, emacs_value args[], void *ignore)
 
   if (sym == NULL)
     return nil;
-  return wrap_pointer (env, sym);
+  return env->make_user_ptr (env, null_finalizer, sym);
 }
 
 static ffi_type *
@@ -171,7 +152,7 @@ module_ffi_prep_cif (emacs_env *env, int nargs, emacs_value args[], void *ignore
 
   /* FIXME error check status  */
 
-  return wrap_pointer (env, cif);
+  return env->make_user_ptr (env, free, cif);
 }
 
 static union holder
@@ -211,7 +192,7 @@ convert_from_lisp (emacs_env *env, emacs_value e_type, emacs_value ev)
   else if (type == &ffi_type_double)
     result.d = extract_float (value);
   else if (type == &ffi_type_pointer)
-    result.p = unwrap_pointer (env, ev);
+    result.p = env->get_user_ptr_ptr (env, ev);
   /* FIXME else error */
 
 #undef MAYBE_NUMBER
@@ -252,7 +233,7 @@ convert_to_lisp (emacs_env *env, emacs_value lisp_type, union holder value)
   else if (type == &ffi_type_double)
     result = env->make_float (env, value.d);
   else if (type == &ffi_type_pointer)
-    result = wrap_pointer (env, value.p);
+    result = env->make_user_ptr (env, null_finalizer, value.p);
   /* FIXME else error */
 
 #undef MAYBE_NUMBER
@@ -264,8 +245,8 @@ convert_to_lisp (emacs_env *env, emacs_value lisp_type, union holder value)
 static emacs_value
 module_ffi_call (emacs_env *env, int nargs, emacs_value *args, void *ignore)
 {
-  ffi_cif *cif = unwrap_pointer (env, args[0]);
-  void *fn = unwrap_pointer (env, args[1]);
+  ffi_cif *cif = env->get_user_ptr_ptr (env, args[0]);
+  void *fn = env->get_user_ptr_ptr (env, args[1]);
   void **values;
   union holder *holders;
   // FIXME need the return type here, which is annoying
@@ -306,20 +287,11 @@ module_ffi_call (emacs_env *env, int nargs, emacs_value *args, void *ignore)
   return convert_to_lisp (env, return_type, result);
 }
 
-/* (ffi--free pointer) */
-static emacs_value
-module_ffi_free (emacs_env *env, int nargs, emacs_value *args, void *ignore)
-{
-  void *ptr = unwrap_pointer (env, args[0]);
-  free (ptr);
-  return nil;
-}
-
 /* (ffi--mem-ref POINTER SIZE) */
 static emacs_value
 module_ffi_mem_ref (emacs_env *env, int nargs, emacs_value *args, void *ignore)
 {
-  void *ptr = unwrap_pointer (env, args[0]);
+  void *ptr = env->get_user_ptr_ptr (env, args[0]);
   int64_t len = env->fixnum_to_int (env, args[1]);
   return (emacs_value) make_unibyte_string (ptr, len);
 }
@@ -328,7 +300,7 @@ module_ffi_mem_ref (emacs_env *env, int nargs, emacs_value *args, void *ignore)
 static emacs_value
 module_ffi_mem_set (emacs_env *env, int nargs, emacs_value *args, void *ignore)
 {
-  void *ptr = unwrap_pointer (env, args[0]);
+  void *ptr = env->get_user_ptr_ptr (env, args[0]);
   Lisp_Object str = (Lisp_Object) args[2];
   CHECK_STRING (str);
   memcpy (ptr, SDATA (str), SCHARS (str));
@@ -344,16 +316,16 @@ module_ffi_pointer_plus (emacs_env *env, int nargs, emacs_value *args,
 
   if (BOOL_VECTOR_P ((Lisp_Object) args[0]))
     {
-      ptr = unwrap_pointer (env, args[0]);
+      ptr = env->get_user_ptr_ptr (env, args[0]);
       ptr += env->fixnum_to_int (env, args[1]);
     }
   else
     {
-      ptr = unwrap_pointer (env, args[1]);
+      ptr = env->get_user_ptr_ptr (env, args[1]);
       ptr += env->fixnum_to_int (env, args[0]);
     }
 
-  return wrap_pointer (env, ptr);
+  return env->make_user_ptr (env, null_finalizer, ptr);
 }
 
 /* (ffi-get-c-string POINTER) */
@@ -361,7 +333,7 @@ static emacs_value
 module_ffi_get_c_string (emacs_env *env, int nargs, emacs_value *args,
 			 void *ignore)
 {
-  char *ptr = unwrap_pointer (env, args[0]);
+  char *ptr = env->get_user_ptr_ptr (env, args[0]);
   size_t len = strlen (ptr);
   return env->make_string (env, ptr, len);
 }
@@ -379,7 +351,6 @@ static const struct descriptor exports[] =
   { "ffi--dlsym", 2, 2, ffi_dlsym },
   { "ffi--prep-cif", 1, -1, module_ffi_prep_cif },
   { "ffi--call", 4, -1, module_ffi_call },
-  { "ffi--free", 1, 1, module_ffi_free },
   { "ffi--mem-ref", 2, 2, module_ffi_mem_ref },
   { "ffi--mem-set", 3, 3, module_ffi_mem_set },
   { "ffi-pointer+", 2, 2, module_ffi_pointer_plus },
