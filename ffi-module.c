@@ -170,13 +170,11 @@ convert_from_lisp (emacs_env *env, emacs_value e_type, emacs_value ev)
 {
   ffi_type *type = convert_type_from_lisp (env, e_type);
   union holder result;
-  Lisp_Object value = (Lisp_Object) /*FIXME*/ ev;
 
-#define MAYBE_NUMBER(ftype, field)		\
-  else if (type == &ffi_type_ ## ftype)		\
-    {						\
-      CHECK_NUMBER (value);			\
-      result.field = XINT (value);		\
+#define MAYBE_NUMBER(ftype, field)			\
+  else if (type == &ffi_type_ ## ftype)			\
+    {							\
+      result.field = env->fixnum_to_int (env, ev);	\
     }
 
   if (type == &ffi_type_void)
@@ -198,9 +196,9 @@ convert_from_lisp (emacs_env *env, emacs_value e_type, emacs_value ev)
   MAYBE_NUMBER (slong, l)
   MAYBE_NUMBER (ulong, ul)
   else if (type == &ffi_type_float)
-    result.f = extract_float (value);
+    result.f = env->float_to_c_double (env, ev);
   else if (type == &ffi_type_double)
-    result.d = extract_float (value);
+    result.d = env->float_to_c_double (env, ev);
   else if (type == &ffi_type_pointer)
     result.p = env->get_user_ptr_ptr (env, ev);
   /* FIXME else error */
