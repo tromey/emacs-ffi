@@ -96,11 +96,8 @@ ffi_dlopen (emacs_env *env, int nargs, emacs_value args[], void *ignore)
 static emacs_value
 ffi_dlsym (emacs_env *env, int nargs, emacs_value args[], void *ignore)
 {
-  Lisp_Object lsym = (Lisp_Object) /*FIXME*/ args[0];
-  lt_dlhandle handle;
+  lt_dlhandle handle = env->get_user_ptr_ptr (env, args[1]);
   void *sym;
-  CHECK_STRING (lsym);
-  handle = env->get_user_ptr_ptr (env, args[1]);
 
   size_t length = 0;
   env->copy_string_contents (env, args[0], NULL, &length);
