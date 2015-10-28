@@ -7,7 +7,6 @@
 int plugin_is_GPL_compatible;
 
 static emacs_value nil;
-static emacs_value eq;
 
 #define ARRAY_SIZE(x) (sizeof (x) / sizeof (x[0]))
 
@@ -117,12 +116,8 @@ convert_type_from_lisp (emacs_env *env, emacs_value ev_type)
   emacs_value type = ev_type;
   unsigned int i;
   for (i = 0; i < ARRAY_SIZE (type_descriptors); ++i)
-    {
-      emacs_value args[2] = { type, type_descriptors[i].value };
-      /* FIXME this would be nice as a module method.  */
-      if (env->funcall (env, eq, 2, args))
-	return type_descriptors[i].type;
-    }
+    if (env->eq (env, type, type_descriptors[i].value))
+      return type_descriptors[i].type;
   return NULL;
 }
 
@@ -345,8 +340,8 @@ static const struct descriptor exports[] =
 {
   { "ffi--dlopen", 1, 1, ffi_dlopen },
   { "ffi--dlsym", 2, 2, ffi_dlsym },
-  { "ffi--prep-cif", 1, -1, module_ffi_prep_cif },
-  { "ffi--call", 4, -1, module_ffi_call },
+  { "ffi--prep-cif", 1, emacs_variadic_function, module_ffi_prep_cif },
+  { "ffi--call", 4, emacs_variadic_function, module_ffi_call },
   { "ffi--mem-ref", 2, 2, module_ffi_mem_ref },
   { "ffi--mem-set", 3, 3, module_ffi_mem_set },
   { "ffi-pointer+", 2, 2, module_ffi_pointer_plus },
@@ -362,7 +357,6 @@ emacs_module_init (struct emacs_runtime *runtime)
   lt_dlinit ();
 
   nil = env->make_global_ref (env, env->intern (env, "nil"));
-  eq = env->make_global_ref (env, env->intern (env, "eq"));
 
   emacs_value fset = env->intern (env, "fset");
 
