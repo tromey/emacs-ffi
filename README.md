@@ -38,9 +38,8 @@ Currently all type conversions work the same in both directions.
   Lisp integer.  Note that this may result in the value being
   truncated; currently there is nothing that can be done about this.
 
-* A C pointer will be returned as a bit-vector, as there is no way to
-  define a new type from an Emacs module.  Hopefully this will change
-  someday.
+* A C pointer will be returned as a user-pointer (a new Lisp type
+  introduced by the dynamic module patch).
 
 # Exported Functions
 
@@ -50,8 +49,6 @@ Currently all type conversions work the same in both directions.
 ```
   (define-ffi-library libwhatever "libwhatever.so")
 ```
-
-  In the future more forms may be supported here.
 
 * `(define-ffi-function NAME C-NAME RETURN-TYPE ARG-TYPES LIBRARY)`.
 
@@ -68,6 +65,9 @@ Currently all type conversions work the same in both directions.
   `define-ffi-function` defines a new Lisp function.  It takes as many
   arguments as were in ARG-TYPES.  (While there is internal support
   for varargs functions, it is not exposed by `define-ffi-function`.)
+
+* `(ffi-get-c-string POINTER)`.  Assume the pointer points to a C
+  string, and return a Lisp string with those contents.
 
 # Internal Functions
 
@@ -114,14 +114,11 @@ Currently all type conversions work the same in both directions.
 
 * `(ffi--pointer+ POINTER NUMBER)`.  Pointer math in Lisp.
 
-* `(ffi-get-c-string POINTER)`.  Assume the pointer points to a C
-  string, and return a Lisp string with those contents.
-
 # Partial To-Do List
 
-* Use the module API properly and avoid things like the
-  `CHECK_BOOL_VECTOR` call.  Some of these don't actually work on
-  failure because Emacs doesn't use `-export-dynamic`.
+* Use the module API properly and avoid things like the `CHECK_VECTOR`
+  calls.  Some of these don't actually work on failure because Emacs
+  doesn't use `-export-dynamic`.
 
 * Add nice support for varargs calls.  The main issue is that the
   types have to be described at each call, and it would be good to

@@ -8,7 +8,6 @@ int plugin_is_GPL_compatible;
 
 static emacs_value nil;
 static emacs_value eq;
-static emacs_value make_bool_vector;
 
 #define ARRAY_SIZE(x) (sizeof (x) / sizeof (x[0]))
 
@@ -320,19 +319,8 @@ static emacs_value
 module_ffi_pointer_plus (emacs_env *env, int nargs, emacs_value *args,
 			 void *ignore)
 {
-  char *ptr;
-
-  if (BOOL_VECTOR_P ((Lisp_Object) args[0]))
-    {
-      ptr = env->get_user_ptr_ptr (env, args[0]);
-      ptr += env->fixnum_to_int (env, args[1]);
-    }
-  else
-    {
-      ptr = env->get_user_ptr_ptr (env, args[1]);
-      ptr += env->fixnum_to_int (env, args[0]);
-    }
-
+  char *ptr = env->get_user_ptr_ptr (env, args[0]);
+  ptr += env->fixnum_to_int (env, args[1]);
   return env->make_user_ptr (env, null_finalizer, ptr);
 }
 
@@ -375,8 +363,6 @@ emacs_module_init (struct emacs_runtime *runtime)
 
   nil = env->make_global_ref (env, env->intern (env, "nil"));
   eq = env->make_global_ref (env, env->intern (env, "eq"));
-  make_bool_vector
-    = env->make_global_ref (env, env->intern (env, "make-bool-vector"));
 
   emacs_value fset = env->intern (env, "fset");
 
