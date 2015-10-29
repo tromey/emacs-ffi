@@ -15,6 +15,7 @@ static emacs_value length;
 static emacs_value error;
 static emacs_value make_vector;
 static emacs_value aset;
+static emacs_value cons;
 
 #define ARRAY_SIZE(x) (sizeof (x) / sizeof (x[0]))
 
@@ -148,9 +149,18 @@ check_vector (emacs_env *env, emacs_value value)
   return true;
 }
 
+static void
+free_cif (void *p)
+{
+  ffi_cif *cif = p;
+  free (cif->arg_types);
+  free (cif);
+}
+
 /* (ffi--prep-cif return-type arg-types &optional n-fixed-args) */
 static emacs_value
-module_ffi_prep_cif (emacs_env *env, int nargs, emacs_value args[], void *ignore)
+module_ffi_prep_cif (emacs_env *env, int nargs, emacs_value args[],
+		     void *ignore)
 {
   unsigned int i;
   ffi_type *return_type;
@@ -202,22 +212,17 @@ module_ffi_prep_cif (emacs_env *env, int nargs, emacs_value args[], void *ignore
 
   /* FIXME error check status  */
 
-  result = env->make_user_ptr (env, free, cif);
+  result = env->make_user_ptr (env, free_cif, cif);
   if (!result)
-    free (cif);
+    free_cif (cif);
  fail:
-  free (arg_types);
   return result;
 }
 
 static void
-convert_from_lisp (emacs_env *env, emacs_value e_type, emacs_value ev,
+convert_from_lisp (emacs_env *env, ffi_type *type, emacs_value ev,
 		   union holder *result)
 {
-  ffi_type *type = convert_type_from_lisp (env, e_type);
-  if (!type)
-    return;
-
 #define MAYBE_NUMBER(ftype, field)			\
   else if (type == &ffi_type_ ## ftype)			\
     {							\
@@ -254,16 +259,13 @@ convert_from_lisp (emacs_env *env, emacs_value e_type, emacs_value ev,
 }
 
 static emacs_value
-convert_to_lisp (emacs_env *env, emacs_value lisp_type, union holder value)
+convert_to_lisp (emacs_env *env, ffi_type *type, union holder *value)
 {
-  ffi_type *type = convert_type_from_lisp (env, lisp_type);
-  if (!type)
-    return NULL;
   emacs_value result;
 
 #define MAYBE_NUMBER(ftype, field)		\
   else if (type == &ffi_type_ ## ftype)		\
-    result = env->make_fixnum (env, value.field);
+    result = env->make_fixnum (env, value->field);
 
   if (type == &ffi_type_void)
     result = nil;
@@ -284,11 +286,11 @@ convert_to_lisp (emacs_env *env, emacs_value lisp_type, union holder value)
   MAYBE_NUMBER (slong, l)
   MAYBE_NUMBER (ulong, ul)
   else if (type == &ffi_type_float)
-    result = env->make_float (env, value.f);
+    result = env->make_float (env, value->f);
   else if (type == &ffi_type_double)
-    result = env->make_float (env, value.d);
+    result = env->make_float (env, value->d);
   else if (type == &ffi_type_pointer)
-    result = env->make_user_ptr (env, null_finalizer, value.p);
+    result = env->make_user_ptr (env, null_finalizer, value->p);
   /* FIXME else error */
 
 #undef MAYBE_NUMBER
@@ -296,7 +298,7 @@ convert_to_lisp (emacs_env *env, emacs_value lisp_type, union holder value)
   return result;
 }
 
-/* (ffi--call cif function return-type arg-types &rest args) */
+/* (ffi--call cif function &rest args) */
 static emacs_value
 module_ffi_call (emacs_env *env, int nargs, emacs_value *args, void *ignore)
 {
@@ -310,18 +312,11 @@ module_ffi_call (emacs_env *env, int nargs, emacs_value *args, void *ignore)
 
   void **values;
   union holder *holders;
-  // FIXME need the return type here, which is annoying
-  // really we ought to capture it in the CIF
-  emacs_value return_type = args[2];
-  emacs_value arg_types = args[3];
   union holder result;
   emacs_value lisp_result = NULL;
 
-  if (!check_vector (env, arg_types))
-    return NULL;
-
-  nargs -= 4;
-  args += 4;
+  nargs -= 2;
+  args += 2;
 
   if (nargs == 0)
     {
@@ -336,16 +331,7 @@ module_ffi_call (emacs_env *env, int nargs, emacs_value *args, void *ignore)
       unsigned int i;
       for (i = 0; i < nargs; ++i)
 	{
-	  emacs_value evi = env->make_fixnum (env, i);
-	  if (env->error_check (env))
-	    goto fail;
-
-	  emacs_value args[2] = { arg_types, evi };
-	  emacs_value this_type = env->funcall (env, aref, 2, args);
-	  if (!this_type)
-	    goto fail;
-
-	  convert_from_lisp (env, this_type, args[i], &holders[i]);
+	  convert_from_lisp (env, cif->arg_types[i], args[i], &holders[i]);
 	  if (env->error_check (env))
 	    goto fail;
 	  values[i] = &holders[i];
@@ -354,7 +340,7 @@ module_ffi_call (emacs_env *env, int nargs, emacs_value *args, void *ignore)
 
   ffi_call (cif, fn, &result, values);
 
-  lisp_result = convert_to_lisp (env, return_type, result);
+  lisp_result = convert_to_lisp (env, cif->rtype, &result);
 
  fail:
   free (values);
@@ -463,6 +449,109 @@ module_ffi_get_c_string (emacs_env *env, int nargs, emacs_value *args,
   return env->make_string (env, ptr, len);
 }
 
+
+
+struct closure_description
+{
+  emacs_env *env;
+  void *closure;
+  emacs_value cif_ref;
+  emacs_value func_ref;
+};
+
+static void
+generic_callback (ffi_cif *cif, void *ret, void **args, void *d)
+{
+  struct closure_description *desc = d;
+  emacs_env *env = desc->env;
+
+  emacs_value *argvalues = malloc (cif->nargs * sizeof (emacs_value));
+  int i;
+  for (i = 0; i < cif->nargs; ++i)
+    {
+      argvalues[i] = convert_to_lisp (env, cif->arg_types[i], args[i]);
+      if (!argvalues[i])
+	goto fail;
+    }
+
+  emacs_value value = env->funcall (env, desc->func_ref, cif->nargs, argvalues);
+  if (value)
+    convert_from_lisp (env, cif->rtype, value, ret);
+
+  env->error_clear (env);
+
+ fail:
+  // On failure we might leave the result uninitialized, but there's
+  // nothing to do about it.
+  free (argvalues);
+}
+
+static void
+free_closure_desc (void *d)
+{
+  struct closure_description *desc = d;
+
+  desc->env->free_global_ref (desc->env, desc->cif_ref);
+  desc->env->free_global_ref (desc->env, desc->func_ref);
+  ffi_closure_free (desc->closure);
+}
+
+/* (ffi-make-closure CIF FUNCTION) */
+static emacs_value
+module_ffi_make_closure (emacs_env *env, int nargs, emacs_value *args,
+			 void *ignore)
+{
+  emacs_value cif_ref = NULL;
+  emacs_value func = NULL;
+  struct closure_description *desc = NULL;
+
+  cif_ref = env->make_global_ref (env, args[0]);
+  if (!cif_ref)
+    return NULL;
+  func = env->make_global_ref (env, args[1]);
+  if (!func)
+    goto fail;
+
+  ffi_cif *cif = env->get_user_ptr_ptr (env, args[0]);
+  if (env->error_check (env))
+    goto fail;
+
+  void *code;
+  void *writable = ffi_closure_alloc (sizeof (ffi_closure), &code);
+
+  desc = malloc (sizeof (struct closure_description));
+  desc->env = env;
+  desc->closure = writable;
+  desc->cif_ref = cif_ref;
+  desc->func_ref = func;
+
+  // FIXME - check the return status
+  ffi_prep_closure_loc (writable, cif, generic_callback, desc, code);
+
+  emacs_value desc_val = env->make_user_ptr (env, free_closure_desc, desc);
+  if (!desc_val)
+    goto fail;
+  // This is a lame API but we would need some way to distinguish
+  // pointers...
+  emacs_value code_val = env->make_user_ptr (env, null_finalizer, code);
+  if (!code_val)
+    goto fail;
+
+  emacs_value consargs[2] = { desc_val, code_val };
+  emacs_value result = env->funcall (env, cons, 2, consargs);
+  if (result)
+    return result;
+
+ fail:
+  free (desc);
+  if (func)
+    env->free_global_ref (env, func);
+  env->free_global_ref (env, cif_ref);
+  return NULL;
+}
+
+
+
 struct descriptor
 {
   const char *name;
@@ -475,11 +564,12 @@ static const struct descriptor exports[] =
   { "ffi--dlopen", 1, 1, ffi_dlopen },
   { "ffi--dlsym", 2, 2, ffi_dlsym },
   { "ffi--prep-cif", 1, emacs_variadic_function, module_ffi_prep_cif },
-  { "ffi--call", 4, emacs_variadic_function, module_ffi_call },
+  { "ffi--call", 2, emacs_variadic_function, module_ffi_call },
   { "ffi--mem-ref", 2, 2, module_ffi_mem_ref },
   { "ffi--mem-set", 3, 3, module_ffi_mem_set },
   { "ffi-pointer+", 2, 2, module_ffi_pointer_plus },
-  { "ffi-get-c-string", 1, 1, module_ffi_get_c_string }
+  { "ffi-get-c-string", 1, 1, module_ffi_get_c_string },
+  { "ffi-make-closure", 2, 2, module_ffi_make_closure }
 };
 
 static bool
@@ -507,7 +597,8 @@ emacs_module_init (struct emacs_runtime *runtime)
       || !get_global (env, &length, "length")
       || !get_global (env, &error, "error")
       || !get_global (env, &make_vector, "make-vector")
-      || !get_global (env, &aset, "aset"))
+      || !get_global (env, &aset, "aset")
+      || !get_global (env, &cons, "cons"))
     return -1;
 
   emacs_value fset = env->intern (env, "fset");

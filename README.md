@@ -66,6 +66,19 @@ Currently all type conversions work the same in both directions.
   arguments as were in ARG-TYPES.  (While there is internal support
   for varargs functions, it is not exposed by `define-ffi-function`.)
 
+* `(ffi-make-closure CIF FUNCTION)`.  Make a C pointer to the Lisp
+  function.  This pointer can then be passed to C functions that need
+  a pointer-to-function argument, and FUNCTION will be called with
+  whatever arguments are passed in.
+
+  CIF is a CIF as returned by `ffi--prep-cif`.  It describes the
+  function's type (as needed by C).
+
+  This returns a cons of the form `(HOLDER . POINTER)`.  HOLDER is an
+  object that must be kept alive as long as the pointer is needed.
+  POINTER is the pointer-to-function.  (This approach is a bit weird
+  but needs some changes to the module API before it can be improved.)
+
 * `(ffi-get-c-string POINTER)`.  Assume the pointer points to a C
   string, and return a Lisp string with those contents.
 
@@ -90,17 +103,12 @@ Currently all type conversions work the same in both directions.
   being made.  This function returns a C pointer wrapped in a Lisp
   object; the garbage collector will handle any needed finalization.
 
-* `(ffi--call CIF FUNCTION RETURN-TYPE ARG-TYPES &rest ARGS)`.  Make
-  an FFI call.
+* `(ffi--call CIF FUNCTION &rest ARGS)`.  Make an FFI call.
 
   CIF is the return from `ffi--prep-cif`.
 
   FUNCTION is a C pointer to the function to call, normally from
   `ffi--dlsym`.
-
-  RETURN-TYPE and ARG-TYPES are the same as for `ffi--prep-cif`.
-  Maybe I will get rid of `ffi--prep-cif` entirely and put everything
-  into `ffi--call`.
 
   ARGS are the arguments to pass to FUNCTION.
 
@@ -129,8 +137,6 @@ Currently all type conversions work the same in both directions.
 * Array types.
 
 * Union types.
-
-* Make C functions from Lisp using the libffi closure API.
 
 * Add a `:c-string` type; for arguments this would be `const char *`
   and for results it would automatically wrap as a new C string.  One

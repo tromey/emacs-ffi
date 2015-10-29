@@ -21,6 +21,6 @@
        (unless ,function
 	 (setq ,function (ffi--dlsym ,c-name (,library))))
        ;; FIXME do we even need a separate prep?
-       (ffi--call ,cif ,function ,return-type ,arg-types ,@arg-names))))
+       (ffi--call ,cif ,function ,@arg-names))))
 
 (provide 'ffi)

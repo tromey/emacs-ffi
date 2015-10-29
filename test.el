@@ -15,3 +15,19 @@
 
 (ert-deftest ffi-c-string ()
   (should (equal (ffi-get-c-string (test-c-string)) "hello")))
+
+(defun callback (arg)
+  (1+ arg))
+
+(define-ffi-function test-call-callback "test_call_callback"
+  :int [:pointer] test.so)
+
+(ert-deftest ffi-call-callback ()
+  (let* ((cif (ffi--prep-cif :int [:int]))
+	 (cb-cons (ffi-make-closure cif #'callback)))
+    (should (eq (test-call-callback (cdr cb-cons)) 23))))
+
+(define-ffi-function test-add "test_add" :int [:int :int] test.so)
+
+(ert-deftest ffi-add ()
+  (should (eq (test-add 23 -23) 0)))
