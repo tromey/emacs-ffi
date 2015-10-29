@@ -24,8 +24,8 @@
 
 (ert-deftest ffi-call-callback ()
   (let* ((cif (ffi--prep-cif :int [:int]))
-	 (cb-cons (ffi-make-closure cif #'callback)))
-    (should (eq (test-call-callback (cdr cb-cons)) 23))))
+	 (pointer-to-callback (ffi-make-closure cif #'callback)))
+    (should (eq (test-call-callback pointer-to-callback) 23))))
 
 (define-ffi-function test-add "test_add" :int [:int :int] test.so)
 

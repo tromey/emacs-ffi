@@ -74,10 +74,8 @@ Currently all type conversions work the same in both directions.
   CIF is a CIF as returned by `ffi--prep-cif`.  It describes the
   function's type (as needed by C).
 
-  This returns a cons of the form `(HOLDER . POINTER)`.  HOLDER is an
-  object that must be kept alive as long as the pointer is needed.
-  POINTER is the pointer-to-function.  (This approach is a bit weird
-  but needs some changes to the module API before it can be improved.)
+  This returns a C function pointer, wrapped in the usual way as a
+  user-pointer object.
 
 * `(ffi-get-c-string POINTER)`.  Assume the pointer points to a C
   string, and return a Lisp string with those contents.

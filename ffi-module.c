@@ -73,6 +73,20 @@ static struct type_descriptor type_descriptors[] =
   { ":pointer", &ffi_type_pointer }
 };
 
+// Description of a closure, freed by free_closure_desc.
+struct closure_description
+{
+  emacs_env *env;
+  void *closure;
+  void *code;
+  emacs_value cif_ref;
+  emacs_value func_ref;
+};
+
+static void free_closure_desc (void *);
+
+
+
 static void
 null_finalizer (void *ptr)
 {
@@ -252,7 +266,19 @@ convert_from_lisp (emacs_env *env, ffi_type *type, emacs_value ev,
   else if (type == &ffi_type_double)
     result->d = env->float_to_c_double (env, ev);
   else if (type == &ffi_type_pointer)
-    result->p = env->get_user_ptr_ptr (env, ev);
+    {
+      result->p = env->get_user_ptr_ptr (env, ev);
+      // We use the finalizer to detect whether we have a closure
+      // pointer; these are converted to their code pointer, not their
+      // raw pointer.
+      if (!env->error_check (env)
+	  && env->get_user_ptr_finalizer (env, ev) == free_closure_desc)
+	{
+	  struct closure_description *desc = result->p;
+	  result->p = desc->code;
+	}
+    }
+
   /* FIXME else error */
 
 #undef MAYBE_NUMBER
@@ -451,14 +477,6 @@ module_ffi_get_c_string (emacs_env *env, int nargs, emacs_value *args,
 
 
 
-struct closure_description
-{
-  emacs_env *env;
-  void *closure;
-  emacs_value cif_ref;
-  emacs_value func_ref;
-};
-
 static void
 generic_callback (ffi_cif *cif, void *ret, void **args, void *d)
 {
@@ -522,6 +540,7 @@ module_ffi_make_closure (emacs_env *env, int nargs, emacs_value *args,
   desc = malloc (sizeof (struct closure_description));
   desc->env = env;
   desc->closure = writable;
+  desc->code = code;
   desc->cif_ref = cif_ref;
   desc->func_ref = func;
 
@@ -529,18 +548,8 @@ module_ffi_make_closure (emacs_env *env, int nargs, emacs_value *args,
   ffi_prep_closure_loc (writable, cif, generic_callback, desc, code);
 
   emacs_value desc_val = env->make_user_ptr (env, free_closure_desc, desc);
-  if (!desc_val)
-    goto fail;
-  // This is a lame API but we would need some way to distinguish
-  // pointers...
-  emacs_value code_val = env->make_user_ptr (env, null_finalizer, code);
-  if (!code_val)
-    goto fail;
-
-  emacs_value consargs[2] = { desc_val, code_val };
-  emacs_value result = env->funcall (env, cons, 2, consargs);
-  if (result)
-    return result;
+  if (desc_val)
+    return desc_val;
 
  fail:
   free (desc);
