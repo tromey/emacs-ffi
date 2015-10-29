@@ -15,7 +15,6 @@ static emacs_value length;
 static emacs_value error;
 static emacs_value make_vector;
 static emacs_value aset;
-static emacs_value cons;
 
 #define ARRAY_SIZE(x) (sizeof (x) / sizeof (x[0]))
 
@@ -606,8 +605,7 @@ emacs_module_init (struct emacs_runtime *runtime)
       || !get_global (env, &length, "length")
       || !get_global (env, &error, "error")
       || !get_global (env, &make_vector, "make-vector")
-      || !get_global (env, &aset, "aset")
-      || !get_global (env, &cons, "cons"))
+      || !get_global (env, &aset, "aset"))
     return -1;
 
   emacs_value fset = env->intern (env, "fset");
