@@ -223,9 +223,12 @@ module_ffi_prep_cif (emacs_env *env, int nargs, emacs_value args[],
     status = ffi_prep_cif (cif, FFI_DEFAULT_ABI, n_types,
 			   return_type, arg_types);
 
-  /* FIXME error check status  */
+  if (status)
+    /* FIXME add some useful message */
+    env->error_signal (env, error, nil);
+  else
+    result = env->make_user_ptr (env, free_cif, cif);
 
-  result = env->make_user_ptr (env, free_cif, cif);
   if (!result)
     free_cif (cif);
  fail:
@@ -543,12 +546,17 @@ module_ffi_make_closure (emacs_env *env, int nargs, emacs_value *args,
   desc->cif_ref = cif_ref;
   desc->func_ref = func;
 
-  // FIXME - check the return status
-  ffi_prep_closure_loc (writable, cif, generic_callback, desc, code);
-
-  emacs_value desc_val = env->make_user_ptr (env, free_closure_desc, desc);
-  if (desc_val)
-    return desc_val;
+  ffi_status status = ffi_prep_closure_loc (writable, cif, generic_callback,
+					    desc, code);
+  if (status)
+    /* FIXME add some useful message */
+    env->error_signal (env, error, nil);
+  else
+    {
+      emacs_value desc_val = env->make_user_ptr (env, free_closure_desc, desc);
+      if (desc_val)
+	return desc_val;
+    }
 
  fail:
   free (desc);
