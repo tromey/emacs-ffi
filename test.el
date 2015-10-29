@@ -1,7 +1,7 @@
 
 (require 'ffi)
 
-(define-ffi-library test.so "test.so")
+(define-ffi-library test.so "test")
 
 (define-ffi-function test-function "test_function" :int nil test.so)
 
