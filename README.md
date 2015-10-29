@@ -105,20 +105,20 @@ Currently all type conversions work the same in both directions.
   ARGS are the arguments to pass to FUNCTION.
 
 * `(ffi--mem-ref POINTER SIZE)`.  Read SIZE bytes of memory starting
-  at POINTER.  The bytes are returned in a unibyte string.  This can
-  be useful in conjunction with the `bindat` package for unpacking C
-  structures.
+  at POINTER.  Currently, the bytes are returned in a vector, one
+  element per byte.  (This might change if there is a handy way to
+  make a unibyte string from the module API.)  This can be useful in
+  conjunction with the `bindat` package for unpacking C structures.
 
-* `(ffi--mem-set POINTER STRING)`.  Copy the contents of STRING to the
-  memory at POINTER.
+* `(ffi--mem-set POINTER VECTOR)`.  Copy the contents of VECTOR to the
+  memory at POINTER.  Each element of the vector must be an integer;
+  the low eight bits are used as the bytes to write to successive
+  memory locations.  Note that this might write partially before
+  failing if some element of the vector is not an integer.
 
 * `(ffi--pointer+ POINTER NUMBER)`.  Pointer math in Lisp.
 
 # Partial To-Do List
-
-* Use the module API properly and avoid things like the `CHECK_VECTOR`
-  calls.  Some of these don't actually work on failure because Emacs
-  doesn't use `-export-dynamic`.
 
 * Add nice support for varargs calls.  The main issue is that the
   types have to be described at each call, and it would be good to

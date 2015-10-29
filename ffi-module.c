@@ -1,12 +1,20 @@
-#include <config.h>
+
 #include "emacs_module.h"
-#include "lisp.h"
+
 #include <ffi.h>
 #include <ltdl.h>
+#include <string.h>
 
 int plugin_is_GPL_compatible;
 
 static emacs_value nil;
+static emacs_value wrong_type_argument;
+static emacs_value vector;
+static emacs_value aref;
+static emacs_value length;
+static emacs_value error;
+static emacs_value make_vector;
+static emacs_value aset;
 
 #define ARRAY_SIZE(x) (sizeof (x) / sizeof (x[0]))
 
@@ -83,10 +91,13 @@ ffi_dlopen (emacs_env *env, int nargs, emacs_value args[], void *ignore)
   handle = lt_dlopenext (name);
   free (name);
 
-  // FIXME lt_dlerror
-  // FIXME use NAME here in the error
   if (!handle)
-    error ("cannot dlopen file");
+    {
+      // FIXME lt_dlerror
+      // FIXME use NAME here in the error
+      env->error_signal (env, error, nil);
+      return NULL;
+    }
   return env->make_user_ptr (env, null_finalizer, handle);
 }
 
@@ -95,14 +106,15 @@ static emacs_value
 ffi_dlsym (emacs_env *env, int nargs, emacs_value args[], void *ignore)
 {
   lt_dlhandle handle = env->get_user_ptr_ptr (env, args[1]);
-  void *sym;
+  if (env->error_check (env))
+    return NULL;
 
   size_t length = 0;
   env->copy_string_contents (env, args[0], NULL, &length);
   char *name = malloc (length);
   env->copy_string_contents (env, args[0], name, &length);
 
-  sym = lt_dlsym (handle, name);
+  void *sym = lt_dlsym (handle, name);
   free (name);
 
   if (sym == NULL)
@@ -118,7 +130,22 @@ convert_type_from_lisp (emacs_env *env, emacs_value ev_type)
   for (i = 0; i < ARRAY_SIZE (type_descriptors); ++i)
     if (env->eq (env, type, type_descriptors[i].value))
       return type_descriptors[i].type;
+  env->error_signal (env, wrong_type_argument, ev_type);
   return NULL;
+}
+
+static bool
+check_vector (emacs_env *env, emacs_value value)
+{
+  emacs_value type = env->type_of (env, value);
+  if (!type)
+    return false;
+  if (!env->eq (env, type, vector))
+    {
+      env->error_signal (env, wrong_type_argument, value);
+      return false;
+    }
+  return true;
 }
 
 /* (ffi--prep-cif return-type arg-types &optional n-fixed-args) */
@@ -129,19 +156,38 @@ module_ffi_prep_cif (emacs_env *env, int nargs, emacs_value args[], void *ignore
   ffi_type *return_type;
   ptrdiff_t n_types;
   ffi_type **arg_types;
-  Lisp_Object typevec = (Lisp_Object) /*FIXME*/ args[1];
+  emacs_value typevec = args[1];
+  emacs_value result = NULL;
 
   return_type = convert_type_from_lisp (env, args[0]);
+  if (!return_type)
+    return NULL;
 
-  /* FIXME the module API should have some vector stuff */
-  CHECK_VECTOR (typevec);
-  n_types = ASIZE (typevec);
+  if (!check_vector (env, typevec))
+    return NULL;
+
+  emacs_value n_types_val;
+  n_types_val = env->funcall (env, length, 1, &typevec);
+  if (!n_types_val)
+    return NULL;
+  n_types = env->fixnum_to_int (env, n_types_val);
+  if (env->error_check (env))
+    return NULL;
   arg_types = malloc (n_types * sizeof (ffi_type *));
 
   for (i = 0; i < n_types; ++i)
     {
-      Lisp_Object this_type = AREF (typevec, i);
-      arg_types[i] = convert_type_from_lisp (env, (emacs_value) this_type);
+      // A bit heavy.
+      emacs_value evi = env->make_fixnum (env, i);
+      if (!evi)
+	goto fail;
+      emacs_value args[2] = { typevec, evi };
+      emacs_value this_type = env->funcall (env, aref, 2, args);
+      if (!this_type)
+	goto fail;
+      arg_types[i] = convert_type_from_lisp (env, this_type);
+      if (!arg_types[i])
+	goto fail;
     }
 
   ffi_cif *cif = malloc (sizeof (ffi_cif));
@@ -156,19 +202,26 @@ module_ffi_prep_cif (emacs_env *env, int nargs, emacs_value args[], void *ignore
 
   /* FIXME error check status  */
 
-  return env->make_user_ptr (env, free, cif);
+  result = env->make_user_ptr (env, free, cif);
+  if (!result)
+    free (cif);
+ fail:
+  free (arg_types);
+  return result;
 }
 
-static union holder
-convert_from_lisp (emacs_env *env, emacs_value e_type, emacs_value ev)
+static void
+convert_from_lisp (emacs_env *env, emacs_value e_type, emacs_value ev,
+		   union holder *result)
 {
   ffi_type *type = convert_type_from_lisp (env, e_type);
-  union holder result;
+  if (!type)
+    return;
 
 #define MAYBE_NUMBER(ftype, field)			\
   else if (type == &ffi_type_ ## ftype)			\
     {							\
-      result.field = env->fixnum_to_int (env, ev);	\
+      result->field = env->fixnum_to_int (env, ev);	\
     }
 
   if (type == &ffi_type_void)
@@ -190,22 +243,22 @@ convert_from_lisp (emacs_env *env, emacs_value e_type, emacs_value ev)
   MAYBE_NUMBER (slong, l)
   MAYBE_NUMBER (ulong, ul)
   else if (type == &ffi_type_float)
-    result.f = env->float_to_c_double (env, ev);
+    result->f = env->float_to_c_double (env, ev);
   else if (type == &ffi_type_double)
-    result.d = env->float_to_c_double (env, ev);
+    result->d = env->float_to_c_double (env, ev);
   else if (type == &ffi_type_pointer)
-    result.p = env->get_user_ptr_ptr (env, ev);
+    result->p = env->get_user_ptr_ptr (env, ev);
   /* FIXME else error */
 
 #undef MAYBE_NUMBER
-
-  return result;
 }
 
 static emacs_value
 convert_to_lisp (emacs_env *env, emacs_value lisp_type, union holder value)
 {
   ffi_type *type = convert_type_from_lisp (env, lisp_type);
+  if (!type)
+    return NULL;
   emacs_value result;
 
 #define MAYBE_NUMBER(ftype, field)		\
@@ -248,16 +301,24 @@ static emacs_value
 module_ffi_call (emacs_env *env, int nargs, emacs_value *args, void *ignore)
 {
   ffi_cif *cif = env->get_user_ptr_ptr (env, args[0]);
+  if (env->error_check (env))
+    return NULL;
+
   void *fn = env->get_user_ptr_ptr (env, args[1]);
+  if (env->error_check (env))
+    return NULL;
+
   void **values;
   union holder *holders;
   // FIXME need the return type here, which is annoying
   // really we ought to capture it in the CIF
   emacs_value return_type = args[2];
-  Lisp_Object arg_types = (Lisp_Object) /*FIXME*/ args[3];
+  emacs_value arg_types = args[3];
   union holder result;
+  emacs_value lisp_result = NULL;
 
-  CHECK_VECTOR (arg_types);
+  if (!check_vector (env, arg_types))
+    return NULL;
 
   nargs -= 4;
   args += 4;
@@ -275,37 +336,104 @@ module_ffi_call (emacs_env *env, int nargs, emacs_value *args, void *ignore)
       unsigned int i;
       for (i = 0; i < nargs; ++i)
 	{
-	  emacs_value this_type = (emacs_value) /*FIXME*/ AREF (arg_types, i);
-	  holders[i] = convert_from_lisp (env, this_type, args[i]);
+	  emacs_value evi = env->make_fixnum (env, i);
+	  if (env->error_check (env))
+	    goto fail;
+
+	  emacs_value args[2] = { arg_types, evi };
+	  emacs_value this_type = env->funcall (env, aref, 2, args);
+	  if (!this_type)
+	    goto fail;
+
+	  convert_from_lisp (env, this_type, args[i], &holders[i]);
+	  if (env->error_check (env))
+	    goto fail;
 	  values[i] = &holders[i];
 	}
     }
 
   ffi_call (cif, fn, &result, values);
 
+  lisp_result = convert_to_lisp (env, return_type, result);
+
+ fail:
   free (values);
   free (holders);
 
-  return convert_to_lisp (env, return_type, result);
+  return lisp_result;
 }
 
 /* (ffi--mem-ref POINTER SIZE) */
 static emacs_value
 module_ffi_mem_ref (emacs_env *env, int nargs, emacs_value *args, void *ignore)
 {
-  void *ptr = env->get_user_ptr_ptr (env, args[0]);
+  unsigned char *ptr = env->get_user_ptr_ptr (env, args[0]);
+  if (env->error_check (env))
+    return NULL;
   int64_t len = env->fixnum_to_int (env, args[1]);
-  return (emacs_value) make_unibyte_string (ptr, len);
+  if (env->error_check (env))
+    return NULL;
+
+  // Access to unibyte strings would be super -- or else this is the
+  // slowest memcpy ever written.
+  emacs_value mvargs[2] = { args[1], nil };
+  emacs_value result = env->funcall (env, make_vector, 2, mvargs);
+  if (!result)
+    return NULL;
+
+  int i;
+  for (i = 0; i < len; ++i)
+    {
+      emacs_value evi = env->make_fixnum (env, i);
+      if (!env->error_check (env))
+	return NULL;
+      emacs_value datum = env->make_fixnum (env, ptr[i]);
+      if (!env->error_check (env))
+	return NULL;
+      emacs_value asetargs[3] = { result, evi, datum };
+      if (!env->funcall (env, aset, 3, args))
+	return NULL;
+    }
+
+  return result;
 }
 
 /* (ffi--mem-set POINTER DATA) */
 static emacs_value
 module_ffi_mem_set (emacs_env *env, int nargs, emacs_value *args, void *ignore)
 {
-  void *ptr = env->get_user_ptr_ptr (env, args[0]);
-  Lisp_Object str = (Lisp_Object) args[2];
-  CHECK_STRING (str);
-  memcpy (ptr, SDATA (str), SCHARS (str));
+  unsigned char *ptr = env->get_user_ptr_ptr (env, args[0]);
+  if (env->error_check (env))
+    return NULL;
+
+  emacs_value datavec = args[2];
+  if (!check_vector (env, datavec))
+    return NULL;
+
+  emacs_value len_val;
+  len_val = env->funcall (env, length, 1, &datavec);
+  if (!len_val)
+    return NULL;
+  int64_t len = env->fixnum_to_int (env, len_val);
+  if (env->error_check (env))
+    return NULL;
+
+  int i;
+  for (i = 0; i < len; ++i)
+    {
+      emacs_value evi = env->make_fixnum (env, i);
+      if (!env->error_check (env))
+	return NULL;
+      emacs_value args[2] = { datavec, evi };
+      emacs_value elt = env->funcall (env, aref, 2, args);
+      if (!elt)
+	return NULL;
+      int64_t byteval = env->fixnum_to_int (env, elt);
+      if (env->error_check (env))
+	return NULL;
+      ptr[i] = (unsigned char) byteval;
+    }
+
   return nil;
 }
 
@@ -315,7 +443,11 @@ module_ffi_pointer_plus (emacs_env *env, int nargs, emacs_value *args,
 			 void *ignore)
 {
   char *ptr = env->get_user_ptr_ptr (env, args[0]);
+  if (env->error_check (env))
+    return NULL;
   ptr += env->fixnum_to_int (env, args[1]);
+  if (env->error_check (env))
+    return NULL;
   return env->make_user_ptr (env, null_finalizer, ptr);
 }
 
@@ -325,6 +457,8 @@ module_ffi_get_c_string (emacs_env *env, int nargs, emacs_value *args,
 			 void *ignore)
 {
   char *ptr = env->get_user_ptr_ptr (env, args[0]);
+  if (env->error_check (env))
+    return NULL;
   size_t len = strlen (ptr);
   return env->make_string (env, ptr, len);
 }
@@ -348,6 +482,16 @@ static const struct descriptor exports[] =
   { "ffi-get-c-string", 1, 1, module_ffi_get_c_string }
 };
 
+static bool
+get_global (emacs_env *env, emacs_value *valptr, const char *name)
+{
+  *valptr = env->intern (env, name);
+  if (!*valptr)
+    return false;
+  *valptr = env->make_global_ref (env, *valptr);
+  return *valptr != NULL;
+}
+
 int
 emacs_module_init (struct emacs_runtime *runtime)
 {
@@ -356,14 +500,23 @@ emacs_module_init (struct emacs_runtime *runtime)
 
   lt_dlinit ();
 
-  nil = env->make_global_ref (env, env->intern (env, "nil"));
+  if (!get_global (env, &nil, "nil")
+      || !get_global (env, &wrong_type_argument, "wrong-type-argument")
+      || !get_global (env, &vector, "vector")
+      || !get_global (env, &aref, "aref")
+      || !get_global (env, &length, "length")
+      || !get_global (env, &error, "error")
+      || !get_global (env, &make_vector, "make-vector")
+      || !get_global (env, &aset, "aset"))
+    return -1;
 
   emacs_value fset = env->intern (env, "fset");
 
   for (i = 0; i < ARRAY_SIZE (type_descriptors); ++i)
     {
-      type_descriptors[i].value = env->intern (env, type_descriptors[i].name);
-      env->make_global_ref (env, type_descriptors[i].value);
+      if (!get_global (env, &type_descriptors[i].value,
+		       type_descriptors[i].name))
+	return -1;
     }
 
   for (i = 0; i < ARRAY_SIZE (exports); ++i)
@@ -371,10 +524,15 @@ emacs_module_init (struct emacs_runtime *runtime)
       emacs_value func = env->make_function (env, exports[i].min,
 					     exports[i].max, exports[i].subr,
 					     NULL);
+      if (!func)
+	return -1;
       emacs_value sym = env->intern (env, exports[i].name);
+      if (!sym)
+	return -1;
 
       emacs_value args[2] = { sym, func };
-      env->funcall (env, fset, 2, args);
+      if (!env->funcall (env, fset, 2, args))
+	return -1;
     }
 
   return 0;
