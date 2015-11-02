@@ -27,6 +27,10 @@ Primitive types are described using keywords:
   the sense that they aren't differentiated based on what they point
   to.
 
+* `:size_t`, `:ssize_t`, `:bool`.  These correspond to the C type of
+  the same name and internally are just aliases for one of the other
+  integral types.
+
 # Type Conversions
 
 Currently all type conversions work the same in both directions.

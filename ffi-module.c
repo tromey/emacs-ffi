@@ -4,6 +4,7 @@
 #include <ffi.h>
 #include <ltdl.h>
 #include <string.h>
+#include <assert.h>
 
 int plugin_is_GPL_compatible;
 
@@ -69,7 +70,11 @@ static struct type_descriptor type_descriptors[] =
   { ":int", &ffi_type_sint },
   { ":ulong", &ffi_type_ulong },
   { ":long", &ffi_type_slong },
-  { ":pointer", &ffi_type_pointer }
+  { ":pointer", &ffi_type_pointer },
+
+  { ":size_t", NULL },
+  { ":ssize_t", NULL },
+  { ":bool", NULL }
 };
 
 // Description of a closure, freed by free_closure_desc.
@@ -598,6 +603,38 @@ get_global (emacs_env *env, emacs_value *valptr, const char *name)
   return *valptr != NULL;
 }
 
+static void
+init_type_alias (const char *name, bool is_unsigned, int size)
+{
+  int i;
+  // Start at the end since we know it is a bit more efficient.
+  for (i = ARRAY_SIZE (type_descriptors) - 1; i >= 0; --i)
+    {
+      if (!strcmp (type_descriptors[i].name, name))
+	break;
+    }
+  assert (i >= 0);
+
+  ffi_type **type = &type_descriptors[i].type;
+  switch (size)
+    {
+    case 1:
+      *type = is_unsigned ? &ffi_type_sint8 : &ffi_type_uint8;
+      break;
+    case 2:
+      *type = is_unsigned ? &ffi_type_sint16 : &ffi_type_uint16;
+      break;
+    case 4:
+      *type = is_unsigned ? &ffi_type_sint32 : &ffi_type_uint32;
+      break;
+    case 8:
+      *type = is_unsigned ? &ffi_type_sint64 : &ffi_type_uint64;
+      break;
+    default:
+      abort ();
+    }
+}
+
 int
 emacs_module_init (struct emacs_runtime *runtime)
 {
@@ -605,6 +642,10 @@ emacs_module_init (struct emacs_runtime *runtime)
   emacs_env *env = runtime->get_environment (runtime);
 
   lt_dlinit ();
+
+  init_type_alias (":size_t", true, sizeof (size_t));
+  init_type_alias (":ssize_t", false, sizeof (ssize_t));
+  init_type_alias (":bool", true, sizeof (bool));
 
   if (!get_global (env, &nil, "nil")
       || !get_global (env, &wrong_type_argument, "wrong-type-argument")
