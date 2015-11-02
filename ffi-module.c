@@ -246,9 +246,13 @@ module_ffi_prep_cif (emacs_env *env, int nargs, emacs_value args[],
   ffi_cif *cif = malloc (sizeof (ffi_cif));
   ffi_status status;
   if (nargs == 3)
-    status = ffi_prep_cif_var (cif, FFI_DEFAULT_ABI,
-			       env->fixnum_to_int (env, args[2]),
-			       n_types, return_type, arg_types);
+    {
+      int64_t n_fixed = env->fixnum_to_int (env, args[2]);
+      if (env->error_check (env))
+	goto fail;
+      status = ffi_prep_cif_var (cif, FFI_DEFAULT_ABI, n_fixed,
+				 n_types, return_type, arg_types);
+    }
   else
     status = ffi_prep_cif (cif, FFI_DEFAULT_ABI, n_types,
 			   return_type, arg_types);
