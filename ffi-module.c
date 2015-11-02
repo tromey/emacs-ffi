@@ -88,6 +88,7 @@ struct closure_description
 };
 
 static void free_closure_desc (void *);
+static void free_type (void *);
 
 
 
@@ -174,6 +175,18 @@ convert_type_from_lisp (emacs_env *env, emacs_value ev_type)
   for (i = 0; i < ARRAY_SIZE (type_descriptors); ++i)
     if (env->eq (env, type, type_descriptors[i].value))
       return type_descriptors[i].type;
+
+  // If we have an ffi_type object, just unwrap it.
+  emacs_finalizer_function finalizer
+    = env->get_user_ptr_finalizer (env, ev_type);
+  if (env->error_check (env))
+    {
+      // We're going to set our own error.
+      env->error_clear (env);
+    }
+  else if (finalizer == free_type)
+    return env->get_user_ptr_ptr (env, ev_type);
+
   env->error_signal (env, wrong_type_argument, ev_type);
   return NULL;
 }
@@ -617,6 +630,57 @@ module_ffi_type_alignment (emacs_env *env, int nargs, emacs_value *args,
 
 
 
+static void
+free_type (void *t)
+{
+  ffi_type *type = t;
+  free (type->elements);
+  free (type);
+}
+
+/* (ffi--define-struct &rest TYPES) */
+static emacs_value
+module_ffi_define_struct (emacs_env *env, int nargs, emacs_value *args,
+			  void *ignore)
+{
+  emacs_value result = NULL;
+  ffi_type *type = malloc (sizeof (ffi_type));
+
+  type->size = 0;
+  type->alignment = 0;
+  type->type = FFI_TYPE_STRUCT;
+  type->elements = malloc ((nargs + 1) * sizeof (struct ffi_type *));
+  type->elements[nargs] = NULL;
+
+  int i;
+  for (i = 0; i < nargs; ++i)
+    {
+      type->elements[i] = convert_type_from_lisp (env, args[i]);
+      if (!type->elements[i])
+	goto fail;
+    }
+
+  // libffi will fill in the type for us, but only if we use prep_cif.
+  // It would be great if it did more.
+  ffi_cif temp_cif;
+  if (ffi_prep_cif (&temp_cif, FFI_DEFAULT_ABI, 0, type, NULL) != FFI_OK)
+    {
+      /* FIXME add some useful message */
+      env->error_signal (env, error, nil);
+      goto fail;
+    }
+
+  result = env->make_user_ptr (env, free_type, type);
+  if (result)
+    return result;
+
+ fail:
+  free_type (type);
+  return result;
+}
+
+
+
 struct descriptor
 {
   const char *name;
@@ -636,7 +700,9 @@ static const struct descriptor exports[] =
   { "ffi-get-c-string", 1, 1, module_ffi_get_c_string },
   { "ffi-make-closure", 2, 2, module_ffi_make_closure },
   { "ffi--type-size", 1, 1, module_ffi_type_size },
-  { "ffi--type-alignment", 1, 1, module_ffi_type_alignment }
+  { "ffi--type-alignment", 1, 1, module_ffi_type_alignment },
+  { "ffi--define-struct", 1, emacs_variadic_function,
+    module_ffi_define_struct }
 };
 
 static bool

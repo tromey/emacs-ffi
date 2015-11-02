@@ -31,3 +31,11 @@
 
 (ert-deftest ffi-add ()
   (should (eq (test-add 23 -23) 0)))
+
+(ert-deftest ffi-struct-layout ()
+  (let ((struct-type (ffi--define-struct :int)))
+    (should (eq (ffi--type-size struct-type)
+		(ffi--type-size :int)))
+    (should (eq (ffi--type-alignment struct-type)
+		(ffi--type-alignment :int)))))
+    
