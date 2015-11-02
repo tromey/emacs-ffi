@@ -4,6 +4,8 @@
 
 (module-load "ffi-module.so")
 
+(gv-define-simple-setter ffi--mem-ref ffi--mem-set)
+
 (defmacro define-ffi-library (symbol name)
   (let ((library (cl-gensym)))
     (set library nil)

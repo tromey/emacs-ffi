@@ -118,17 +118,13 @@ Currently all type conversions work the same in both directions.
 
   ARGS are the arguments to pass to FUNCTION.
 
-* `(ffi--mem-ref POINTER SIZE)`.  Read SIZE bytes of memory starting
-  at POINTER.  Currently, the bytes are returned in a vector, one
-  element per byte.  (This might change if there is a handy way to
-  make a unibyte string from the module API.)  This can be useful in
-  conjunction with the `bindat` package for unpacking C structures.
+* `(ffi--mem-ref POINTER TYPE)`.  Read memory from POINTER and convert
+  it, using the usual conversions, as the given type.  This is the
+  Lisp equivalent of `*pointer` in C.
 
-* `(ffi--mem-set POINTER VECTOR)`.  Copy the contents of VECTOR to the
-  memory at POINTER.  Each element of the vector must be an integer;
-  the low eight bits are used as the bytes to write to successive
-  memory locations.  Note that this might write partially before
-  failing if some element of the vector is not an integer.
+* `(ffi--mem-set POINTER TYPE VALUE)`.  Copy the Lisp value to the
+  memory pointed at by the pointer, using the type to guide the
+  conversion.  This is the Lisp equivalent of `*pointer = value` in C.
 
 * `(ffi--pointer+ POINTER NUMBER)`.  Pointer math in Lisp.
 

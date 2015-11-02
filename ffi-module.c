@@ -269,18 +269,24 @@ module_ffi_prep_cif (emacs_env *env, int nargs, emacs_value args[],
   return result;
 }
 
-static void
+static bool
 convert_from_lisp (emacs_env *env, ffi_type *type, emacs_value ev,
 		   union holder *result)
 {
 #define MAYBE_NUMBER(ftype, field)			\
   else if (type == &ffi_type_ ## ftype)			\
     {							\
-      result->field = env->fixnum_to_int (env, ev);	\
+    int64_t ival = env->fixnum_to_int (env, ev);	\
+    if (env->error_check (env))				\
+      return false;					\
+  result->field = ival;					\
     }
 
   if (type == &ffi_type_void)
-    error;
+    {
+      env->error_signal (env, wrong_type_argument, ev);
+      return false;
+    }
   MAYBE_NUMBER (sint8, i8)
   MAYBE_NUMBER (uint8, ui8)
   MAYBE_NUMBER (sint16, i16)
@@ -298,26 +304,50 @@ convert_from_lisp (emacs_env *env, ffi_type *type, emacs_value ev,
   MAYBE_NUMBER (slong, l)
   MAYBE_NUMBER (ulong, ul)
   else if (type == &ffi_type_float)
-    result->f = env->float_to_c_double (env, ev);
+    {
+      double d = env->float_to_c_double (env, ev);
+      if (env->error_check (env))
+	return false;
+      result->f = d;
+    }
   else if (type == &ffi_type_double)
-    result->d = env->float_to_c_double (env, ev);
+    {
+      double d = env->float_to_c_double (env, ev);
+      if (env->error_check (env))
+	return false;
+      result->d = d;
+    }
   else if (type == &ffi_type_pointer)
     {
-      result->p = env->get_user_ptr_ptr (env, ev);
+      void *p = env->get_user_ptr_ptr (env, ev);
       // We use the finalizer to detect whether we have a closure
       // pointer; these are converted to their code pointer, not their
       // raw pointer.
-      if (!env->error_check (env)
-	  && env->get_user_ptr_finalizer (env, ev) == free_closure_desc)
+      if (env->error_check (env))
+	return false;
+ 
+      emacs_finalizer_function finalizer
+	= env->get_user_ptr_finalizer (env, ev);
+      if (env->error_check (env))
+	return false;
+
+      if (finalizer == free_closure_desc)
 	{
-	  struct closure_description *desc = result->p;
-	  result->p = desc->code;
+	  struct closure_description *desc = p;
+	  p = desc->code;
 	}
+
+      result->p = p;
+    }
+  else
+    {
+      env->error_signal (env, wrong_type_argument, ev);
+      return false;
     }
 
-  /* FIXME else error */
-
 #undef MAYBE_NUMBER
+
+return true;
 }
 
 static emacs_value
@@ -353,7 +383,11 @@ convert_to_lisp (emacs_env *env, ffi_type *type, union holder *value)
     result = env->make_float (env, value->d);
   else if (type == &ffi_type_pointer)
     result = env->make_user_ptr (env, null_finalizer, value->p);
-  /* FIXME else error */
+  else
+    {
+      env->error_signal (env, wrong_type_argument, nil);
+      result = NULL;
+    }
 
 #undef MAYBE_NUMBER
 
@@ -393,8 +427,7 @@ module_ffi_call (emacs_env *env, int nargs, emacs_value *args, void *ignore)
       unsigned int i;
       for (i = 0; i < nargs; ++i)
 	{
-	  convert_from_lisp (env, cif->arg_types[i], args[i], &holders[i]);
-	  if (env->error_check (env))
+	  if (!convert_from_lisp (env, cif->arg_types[i], args[i], &holders[i]))
 	    goto fail;
 	  values[i] = &holders[i];
 	}
@@ -411,77 +444,35 @@ module_ffi_call (emacs_env *env, int nargs, emacs_value *args, void *ignore)
   return lisp_result;
 }
 
-/* (ffi--mem-ref POINTER SIZE) */
+/* (ffi--mem-ref POINTER TYPE) */
 static emacs_value
 module_ffi_mem_ref (emacs_env *env, int nargs, emacs_value *args, void *ignore)
 {
-  unsigned char *ptr = env->get_user_ptr_ptr (env, args[0]);
-  if (env->error_check (env))
-    return NULL;
-  int64_t len = env->fixnum_to_int (env, args[1]);
+  void *ptr = env->get_user_ptr_ptr (env, args[0]);
   if (env->error_check (env))
     return NULL;
 
-  // Access to unibyte strings would be super -- or else this is the
-  // slowest memcpy ever written.
-  emacs_value mvargs[2] = { args[1], nil };
-  emacs_value result = env->funcall (env, make_vector, 2, mvargs);
-  if (!result)
+  ffi_type *type = convert_type_from_lisp (env, args[1]);
+  if (!type)
     return NULL;
 
-  int i;
-  for (i = 0; i < len; ++i)
-    {
-      emacs_value evi = env->make_fixnum (env, i);
-      if (!env->error_check (env))
-	return NULL;
-      emacs_value datum = env->make_fixnum (env, ptr[i]);
-      if (!env->error_check (env))
-	return NULL;
-      emacs_value asetargs[3] = { result, evi, datum };
-      if (!env->funcall (env, aset, 3, args))
-	return NULL;
-    }
-
-  return result;
+  return convert_to_lisp (env, type, ptr);
 }
 
-/* (ffi--mem-set POINTER DATA) */
+/* (ffi--mem-set POINTER TYPE VALUE) */
 static emacs_value
 module_ffi_mem_set (emacs_env *env, int nargs, emacs_value *args, void *ignore)
 {
-  unsigned char *ptr = env->get_user_ptr_ptr (env, args[0]);
+  void *ptr = env->get_user_ptr_ptr (env, args[0]);
   if (env->error_check (env))
     return NULL;
 
-  emacs_value datavec = args[2];
-  if (!check_vector (env, datavec))
+  ffi_type *type = convert_type_from_lisp (env, args[1]);
+  if (!type)
     return NULL;
 
-  emacs_value len_val;
-  len_val = env->funcall (env, length, 1, &datavec);
-  if (!len_val)
+  if (!convert_from_lisp (env, type, args[2], ptr))
     return NULL;
-  int64_t len = env->fixnum_to_int (env, len_val);
-  if (env->error_check (env))
-    return NULL;
-
-  int i;
-  for (i = 0; i < len; ++i)
-    {
-      emacs_value evi = env->make_fixnum (env, i);
-      if (!env->error_check (env))
-	return NULL;
-      emacs_value args[2] = { datavec, evi };
-      emacs_value elt = env->funcall (env, aref, 2, args);
-      if (!elt)
-	return NULL;
-      int64_t byteval = env->fixnum_to_int (env, elt);
-      if (env->error_check (env))
-	return NULL;
-      ptr[i] = (unsigned char) byteval;
-    }
-
   return nil;
 }
 
