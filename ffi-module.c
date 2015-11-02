@@ -573,6 +573,30 @@ module_ffi_make_closure (emacs_env *env, int nargs, emacs_value *args,
 
 
 
+/* (ffi--type-size TYPE) */
+static emacs_value
+module_ffi_type_size (emacs_env *env, int nargs, emacs_value *args,
+		      void *ignore)
+{
+  ffi_type *type = convert_type_from_lisp (env, args[0]);
+  if (!type)
+    return NULL;
+  return env->make_fixnum (env, type->size);
+}
+
+/* (ffi--type-alignment TYPE) */
+static emacs_value
+module_ffi_type_alignment (emacs_env *env, int nargs, emacs_value *args,
+			   void *ignore)
+{
+  ffi_type *type = convert_type_from_lisp (env, args[0]);
+  if (!type)
+    return NULL;
+  return env->make_fixnum (env, type->alignment);
+}
+
+
+
 struct descriptor
 {
   const char *name;
@@ -590,7 +614,9 @@ static const struct descriptor exports[] =
   { "ffi--mem-set", 3, 3, module_ffi_mem_set },
   { "ffi-pointer+", 2, 2, module_ffi_pointer_plus },
   { "ffi-get-c-string", 1, 1, module_ffi_get_c_string },
-  { "ffi-make-closure", 2, 2, module_ffi_make_closure }
+  { "ffi-make-closure", 2, 2, module_ffi_make_closure },
+  { "ffi--type-size", 1, 1, module_ffi_type_size },
+  { "ffi--type-alignment", 1, 1, module_ffi_type_alignment }
 };
 
 static bool
