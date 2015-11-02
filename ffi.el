@@ -55,7 +55,7 @@ SLOT-NAME is a symbol and TYPE is an FFI type descriptor."
 	 (result-forms ())
 	 (field-types (mapcar (lambda (slot)
 				(cl-assert (eq (cadr slot) :type))
-				(cl-caddr slot))
+				(symbol-value (cl-caddr slot)))
 			      slots))
 	 (struct-type (apply #'ffi--define-struct field-types))
 	 (field-offsets (ffi--lay-out-struct field-types)))
