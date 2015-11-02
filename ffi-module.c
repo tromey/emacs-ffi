@@ -286,6 +286,9 @@ static bool
 convert_from_lisp (emacs_env *env, ffi_type *type, emacs_value ev,
 		   union holder *result)
 {
+  // Callers must handle this.
+  assert (type->type != FFI_TYPE_STRUCT);
+
 #define MAYBE_NUMBER(ftype, field)			\
   else if (type == &ffi_type_ ## ftype)			\
     {							\
@@ -364,7 +367,8 @@ return true;
 }
 
 static emacs_value
-convert_to_lisp (emacs_env *env, ffi_type *type, union holder *value)
+convert_to_lisp (emacs_env *env, ffi_type *type, union holder *value,
+		 emacs_finalizer_function finalizer_for_struct)
 {
   emacs_value result;
 
@@ -396,6 +400,11 @@ convert_to_lisp (emacs_env *env, ffi_type *type, union holder *value)
     result = env->make_float (env, value->d);
   else if (type == &ffi_type_pointer)
     result = env->make_user_ptr (env, null_finalizer, value->p);
+  else if (type->type == FFI_TYPE_STRUCT)
+    {
+      // The argument itself is the data.
+      result = env->make_user_ptr (env, null_finalizer, value);
+    }
   else
     {
       env->error_signal (env, wrong_type_argument, nil);
@@ -421,7 +430,8 @@ module_ffi_call (emacs_env *env, int nargs, emacs_value *args, void *ignore)
 
   void **values;
   union holder *holders;
-  union holder result;
+  union holder result_holder;
+  void *result;
   emacs_value lisp_result = NULL;
 
   nargs -= 2;
@@ -440,17 +450,40 @@ module_ffi_call (emacs_env *env, int nargs, emacs_value *args, void *ignore)
       unsigned int i;
       for (i = 0; i < nargs; ++i)
 	{
-	  if (!convert_from_lisp (env, cif->arg_types[i], args[i], &holders[i]))
-	    goto fail;
-	  values[i] = &holders[i];
+	  if (cif->arg_types[i]->type == FFI_TYPE_STRUCT)
+	    {
+	      // The value is just the unwrapped pointer.
+	      values[i] = env->get_user_ptr_ptr (env, args[i]);
+	      if (!values[i])
+		goto fail;
+	    }
+	  else
+	    {
+	      if (!convert_from_lisp (env, cif->arg_types[i], args[i],
+				      &holders[i]))
+		goto fail;
+	      values[i] = &holders[i];
+	    }
 	}
     }
 
-  ffi_call (cif, fn, &result, values);
+  if (cif->rtype->type == FFI_TYPE_STRUCT)
+    result = malloc (cif->rtype->size);
+  else
+    result = &result_holder;
 
-  lisp_result = convert_to_lisp (env, cif->rtype, &result);
+  ffi_call (cif, fn, result, values);
+
+  lisp_result = convert_to_lisp (env, cif->rtype, result, free);
+  if (lisp_result)
+    {
+      // On success do not free RESULT.
+      result = &result_holder;
+    }
 
  fail:
+  if (result != &result_holder)
+    free (result);
   free (values);
   free (holders);
 
@@ -469,7 +502,7 @@ module_ffi_mem_ref (emacs_env *env, int nargs, emacs_value *args, void *ignore)
   if (!type)
     return NULL;
 
-  return convert_to_lisp (env, type, ptr);
+  return convert_to_lisp (env, type, ptr, null_finalizer);
 }
 
 /* (ffi--mem-set POINTER TYPE VALUE) */
@@ -484,8 +517,16 @@ module_ffi_mem_set (emacs_env *env, int nargs, emacs_value *args, void *ignore)
   if (!type)
     return NULL;
 
-  if (!convert_from_lisp (env, type, args[2], ptr))
+  if (type->type == FFI_TYPE_STRUCT)
+    {
+      void *from = env->get_user_ptr_ptr (env, args[2]);
+      if (env->error_check (env))
+	return NULL;
+      memcpy (ptr, from, type->size);
+    }
+  else if (!convert_from_lisp (env, type, args[2], ptr))
     return NULL;
+
   return nil;
 }
 
@@ -527,14 +568,24 @@ generic_callback (ffi_cif *cif, void *ret, void **args, void *d)
   int i;
   for (i = 0; i < cif->nargs; ++i)
     {
-      argvalues[i] = convert_to_lisp (env, cif->arg_types[i], args[i]);
+      argvalues[i] = convert_to_lisp (env, cif->arg_types[i], args[i],
+				      null_finalizer);
       if (!argvalues[i])
 	goto fail;
     }
 
   emacs_value value = env->funcall (env, desc->func_ref, cif->nargs, argvalues);
   if (value)
-    convert_from_lisp (env, cif->rtype, value, ret);
+    {
+      if (cif->rtype->type == FFI_TYPE_STRUCT)
+	{
+	  void *ptr = env->get_user_ptr_ptr (env, value);
+	  if (!env->error_check (env))
+	    memcpy (ret, ptr, cif->rtype->size);
+	}
+      else
+	convert_from_lisp (env, cif->rtype, value, ret);
+    }
 
   env->error_clear (env);
 

@@ -17,3 +17,22 @@ int test_add (int x, int y)
 {
   return x + y;
 }
+
+struct test_struct
+{
+  char *stringval;
+  int intval;
+};
+
+struct test_struct test_get_struct (void)
+{
+  struct test_struct result;
+  result.stringval = "string";
+  result.intval = 23;
+  return result;
+}
+
+int test_get_struct_int (struct test_struct ts)
+{
+  return ts.intval;
+}

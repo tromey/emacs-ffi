@@ -39,3 +39,36 @@
     (should (eq (ffi--type-alignment struct-type)
 		(ffi--type-alignment :int)))))
     
+(ert-deftest ffi-struct-layout-offsets ()
+  (let* ((types '(:pointer :int))
+	 (struct-type (apply #'ffi--define-struct types)))
+    (should (equal (ffi--lay-out-struct types)
+		   (list 0 (ffi--type-size :pointer))))))
+
+(ert-deftest ffi-struct-layout-offsets-2 ()
+  (let* ((types '(:char :pointer))
+	 (struct-type (apply #'ffi--define-struct types)))
+    (should (equal (ffi--lay-out-struct types)
+		   (list 0 (ffi--type-alignment :pointer))))))
+
+(define-ffi-struct test-struct
+  (stringval :type :pointer)
+  (intval :type :int))
+
+(define-ffi-function test-get-struct "test_get_struct"
+  test-struct nil test.so)
+
+(ert-deftest ffi-structure-return ()
+  (let ((struct-value (test-get-struct)))
+    (should (equal (ffi-get-c-string (test-struct-stringval struct-value))
+		   "string"))
+    (should (eq (test-struct-intval struct-value) 23))))
+
+(define-ffi-function test-get-struct-int "test_get_struct_int"
+  :int (test-struct) test.so)
+
+(ert-deftest ffi-struct-modification ()
+  (let ((struct-value (test-get-struct)))
+    (should (eq (test-get-struct-int struct-value) 23))
+    (cl-incf (test-struct-intval struct-value))
+    (should (eq (test-get-struct-int struct-value) 24))))

@@ -1,13 +1,12 @@
 This is a simple FFI for Emacs.  It is based on libffi and relies on
 the dynamic modules work to be loaded into Emacs.
 
-This is very preliminary.  I'd appreciate your feedback, either via
-email or issues on github.
+I'd appreciate your feedback, either via email or issues on github.
 
 # Types
 
-Currently the library only supports primitive types for arguments and
-return types.  Structure types will be supported some day.
+Currently the library supports primitive and structure types for
+arguments and return types.
 
 Primitive types are described using keywords:
 
@@ -31,6 +30,11 @@ Primitive types are described using keywords:
   the same name and internally are just aliases for one of the other
   integral types.
 
+Structure types are represented by a user-pointer object that wraps an
+`ffi_type`.  The best way to manipulate structures is to use
+`define-ffi-struct`, which is a limited form of `cl-defstruct` that
+works on foreign objects directly.
+
 # Type Conversions
 
 Currently all type conversions work the same in both directions.
@@ -44,6 +48,11 @@ Currently all type conversions work the same in both directions.
 
 * A C pointer will be returned as a user-pointer (a new Lisp type
   introduced by the dynamic module patch).
+
+* A structure is also represented as a user-pointer.  When a structure
+  is returned by value from a foreign function, the resulting
+  user-pointer will have a finalizer attached that will free the
+  memory when the user-pointer is garbage collected.
 
 # Exported Functions
 
@@ -88,6 +97,14 @@ Currently all type conversions work the same in both directions.
 * `(ffi-get-c-string POINTER)`.  Assume the pointer points to a C
   string, and return a Lisp string with those contents.
 
+* `(define-ffi-struct NAME &rest SLOT...)`.  A limited form of
+  `cl-defstruct` that works on foreign objects.  This defines a new
+  foreign structure type named NAME.  Each SLOT is of the form
+  `(SLOT-NAME :type TYPE)`.  Each TYPE must be a foreign type.
+
+  `define-ffi-struct` makes accessors for each slot of the form
+  `NAME-SLOT-NAME`.  `setf` works on these accessors.
+
 # Internal Functions
 
 * `(ffi--dlopen STR)`.  A simple wrapper for `dlopen` (actually
@@ -109,7 +126,7 @@ Currently all type conversions work the same in both directions.
   being made.  This function returns a C pointer wrapped in a Lisp
   object; the garbage collector will handle any needed finalization.
 
-* `(ffi--call CIF FUNCTION &rest ARGS)`.  Make an FFI call.
+* `(ffi--call CIF FUNCTION &rest ARG...)`.  Make an FFI call.
 
   CIF is the return from `ffi--prep-cif`.
 
@@ -128,22 +145,35 @@ Currently all type conversions work the same in both directions.
 
 * `(ffi--pointer+ POINTER NUMBER)`.  Pointer math in Lisp.
 
+* `(ffi--type-size TYPE)`.  Return the size of TYPE.
+
+* `(ffi--type-alignment TYPE)`.  Return the alignment needed by TYPE.
+
+* `(ffi--define-struct &rest TYPE...)`.  Define a new foreign structure
+  type, whose fields are the indicated types.
+
 # Partial To-Do List
 
 * Add nice support for varargs calls.  The main issue is that the
   types have to be described at each call, and it would be good to
   have an easy way to describe this in Lisp.
 
-* Structure types in arguments and returns.
+* Array types.  Since these can't be arguments or results we can just
+  handle something like `(:array TYPE NUM)` in `define-ffi-struct`.
 
-* Array types.
-
-* Union types.
+* Union types.  I think we'll need a hack to make this work nicely
+  with FFI.  In particular we'll need a new `ffi_type` that is
+  `FFI_TYPE_STRUCT` but where we hack the size and alignment to match
+  the largest size and offset of the elements.  Not sure this will
+  even work.
 
 * Add a `:c-string` type; for arguments this would be `const char *`
   and for results it would automatically wrap as a new C string.  One
   issue is for results you may want to automatically free the returned
   pointer, so this would require some extra info.
+
+  Actually I plan to steal some nice ideas from CFFI to make this more
+  general.
 
 * Typed pointers.
 
