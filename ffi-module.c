@@ -96,6 +96,31 @@ null_finalizer (void *ptr)
 {
 }
 
+// We have multiple finalizers because we use them to distinguish
+// between pointer types.
+static void
+null_lthandle_finalizer (void *ptr)
+{
+}
+
+static void *
+unwrap_pointer (emacs_env *env, emacs_value value,
+		emacs_finalizer_function expected)
+{
+  emacs_finalizer_function finalizer
+    = env->get_user_ptr_finalizer (env, value);
+  if (finalizer == NULL)
+    return NULL;
+  if (finalizer != expected)
+    {
+      env->error_signal (env, wrong_type_argument, value);
+      return NULL;
+    }
+  return env->get_user_ptr_ptr (env, value);
+}
+
+
+
 /* (ffi--dlopen str) */
 static emacs_value
 ffi_dlopen (emacs_env *env, int nargs, emacs_value args[], void *ignore)
@@ -117,15 +142,15 @@ ffi_dlopen (emacs_env *env, int nargs, emacs_value args[], void *ignore)
       env->error_signal (env, error, nil);
       return NULL;
     }
-  return env->make_user_ptr (env, null_finalizer, handle);
+  return env->make_user_ptr (env, null_lthandle_finalizer, handle);
 }
 
-/* (ffi--dlsym symbol-name &optional handle) */
+/* (ffi--dlsym symbol-name handle) */
 static emacs_value
 ffi_dlsym (emacs_env *env, int nargs, emacs_value args[], void *ignore)
 {
-  lt_dlhandle handle = env->get_user_ptr_ptr (env, args[1]);
-  if (env->error_check (env))
+  lt_dlhandle handle = unwrap_pointer (env, args[1], null_lthandle_finalizer);
+  if (!handle)
     return NULL;
 
   size_t length = 0;
@@ -335,8 +360,8 @@ convert_to_lisp (emacs_env *env, ffi_type *type, union holder *value)
 static emacs_value
 module_ffi_call (emacs_env *env, int nargs, emacs_value *args, void *ignore)
 {
-  ffi_cif *cif = env->get_user_ptr_ptr (env, args[0]);
-  if (env->error_check (env))
+  ffi_cif *cif = unwrap_pointer (env, args[0], free_cif);
+  if (!cif)
     return NULL;
 
   void *fn = env->get_user_ptr_ptr (env, args[1]);
@@ -537,8 +562,8 @@ module_ffi_make_closure (emacs_env *env, int nargs, emacs_value *args,
   if (!func)
     goto fail;
 
-  ffi_cif *cif = env->get_user_ptr_ptr (env, args[0]);
-  if (env->error_check (env))
+  ffi_cif *cif = unwrap_pointer (env, args[0], free_cif);
+  if (!cif)
     goto fail;
 
   void *code;
