@@ -180,3 +180,5 @@ Currently all type conversions work the same in both directions.
 
 * A way to deal with integer truncation.  Or just add bignums to
   Emacs.
+
+* A CIF that refers to other types has to keep them alive.
