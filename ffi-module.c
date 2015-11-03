@@ -10,9 +10,6 @@ int plugin_is_GPL_compatible;
 
 static emacs_value nil;
 static emacs_value wrong_type_argument;
-static emacs_value vector;
-static emacs_value aref;
-static emacs_value length;
 static emacs_value error;
 
 #define ARRAY_SIZE(x) (sizeof (x) / sizeof (x[0]))
@@ -189,20 +186,6 @@ convert_type_from_lisp (emacs_env *env, emacs_value ev_type)
   return NULL;
 }
 
-static bool
-check_vector (emacs_env *env, emacs_value value)
-{
-  emacs_value type = env->type_of (env, value);
-  if (!type)
-    return false;
-  if (!env->eq (env, type, vector))
-    {
-      env->error_signal (env, wrong_type_argument, value);
-      return false;
-    }
-  return true;
-}
-
 static void
 free_cif (void *p)
 {
@@ -218,7 +201,7 @@ module_ffi_prep_cif (emacs_env *env, int nargs, emacs_value args[],
 {
   unsigned int i;
   ffi_type *return_type;
-  ptrdiff_t n_types;
+  size_t n_types;
   ffi_type **arg_types;
   emacs_value typevec = args[1];
   emacs_value result = NULL;
@@ -227,26 +210,14 @@ module_ffi_prep_cif (emacs_env *env, int nargs, emacs_value args[],
   if (!return_type)
     return NULL;
 
-  if (!check_vector (env, typevec))
-    return NULL;
-
-  emacs_value n_types_val;
-  n_types_val = env->funcall (env, length, 1, &typevec);
-  if (!n_types_val)
-    return NULL;
-  n_types = env->fixnum_to_int (env, n_types_val);
+  n_types = env->vec_size (env, typevec);
   if (env->error_check (env))
     return NULL;
   arg_types = malloc (n_types * sizeof (ffi_type *));
 
   for (i = 0; i < n_types; ++i)
     {
-      // A bit heavy.
-      emacs_value evi = env->make_fixnum (env, i);
-      if (!evi)
-	goto fail;
-      emacs_value args[2] = { typevec, evi };
-      emacs_value this_type = env->funcall (env, aref, 2, args);
+      emacs_value this_type = env->vec_get (env, typevec, i);
       if (!this_type)
 	goto fail;
       arg_types[i] = convert_type_from_lisp (env, this_type);
@@ -810,9 +781,6 @@ emacs_module_init (struct emacs_runtime *runtime)
 
   if (!get_global (env, &nil, "nil")
       || !get_global (env, &wrong_type_argument, "wrong-type-argument")
-      || !get_global (env, &vector, "vector")
-      || !get_global (env, &aref, "aref")
-      || !get_global (env, &length, "length")
       || !get_global (env, &error, "error"))
     return -1;
 
