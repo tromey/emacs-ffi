@@ -59,9 +59,9 @@ Currently all type conversions work the same in both directions.
 * `(define-ffi-library SYMBOL NAME)`.  Used to define a function that
   lazily loads a library.  Like:
 
-```
-  (define-ffi-library libwhatever "libwhatever")
-```
+   ```
+     (define-ffi-library libwhatever "libwhatever")
+   ```
 
   ffi-module uses libltdl (from libtool), which will automatically
   supply the correct extension if none is specified, so it's generally
