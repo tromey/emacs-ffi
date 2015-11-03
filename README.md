@@ -35,6 +35,12 @@ Structure types are represented by a user-pointer object that wraps an
 `define-ffi-struct`, which is a limited form of `cl-defstruct` that
 works on foreign objects directly.
 
+A structure object is also represented by a user-pointer object.  If a
+function's return type is a structure type, then the object allocated
+by the FFI will automatically be reclaimed by the garbage collector --
+there is no need to explicitly free it.  (Contrast this with the
+behavior of `ffi-make-c-string`, which requires an explicit free.)
+
 # Type Conversions
 
 Currently all type conversions work the same in both directions.
