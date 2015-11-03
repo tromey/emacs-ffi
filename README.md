@@ -97,6 +97,10 @@ Currently all type conversions work the same in both directions.
 * `(ffi-get-c-string POINTER)`.  Assume the pointer points to a C
   string, and return a Lisp string with those contents.
 
+* `(ffi-make-c-string STRING)`.  Allocate a C string with the same
+  contents as the given Lisp string.  The memory for the C string will
+  automatically be freed by the GC.
+
 * `(define-ffi-struct NAME &rest SLOT...)`.  A limited form of
   `cl-defstruct` that works on foreign objects.  This defines a new
   foreign structure type named NAME.  Each SLOT is of the form
