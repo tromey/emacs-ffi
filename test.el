@@ -84,3 +84,6 @@
   (let ((object (test-get-union)))
     (should (eq (test-union-ival object) -1))
     (should (eq (test-union-cval object) 255))))
+
+(ert-deftest ffi-null ()
+  (should (ffi-pointer-null-p (ffi-null-pointer))))

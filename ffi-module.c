@@ -525,7 +525,15 @@ module_ffi_pointer_null_p (emacs_env *env, int nargs, emacs_value *args,
       env->error_clear (env);
       return nil;
     }
-  return ptr ? emacs_true : nil;
+  return ptr ? nil : emacs_true;
+}
+
+/* (ffi-null-pointer) */
+static emacs_value
+module_ffi_null_pointer (emacs_env *env, int nargs, emacs_value *args,
+			 void *ignore)
+{
+  return env->make_user_ptr (env, null_finalizer, NULL);
 }
 
 /* (ffi-get-c-string POINTER) */
@@ -777,6 +785,7 @@ static const struct descriptor exports[] =
   { "ffi--mem-set", 3, 3, module_ffi_mem_set },
   { "ffi-pointer+", 2, 2, module_ffi_pointer_plus },
   { "ffi-pointer-null-p", 1, 1, module_ffi_pointer_null_p },
+  { "ffi-null-pointer", 0, 0, module_ffi_null_pointer },
   { "ffi-get-c-string", 1, 1, module_ffi_get_c_string },
   { "ffi-make-closure", 2, 2, module_ffi_make_closure },
   { "ffi--type-size", 1, 1, module_ffi_type_size },
