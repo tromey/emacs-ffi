@@ -578,6 +578,37 @@ module_ffi_make_c_string (emacs_env *env, int nargs, emacs_value *args,
 
 
 
+/* (ffi-allocate TYPE-OR-INT) */
+static emacs_value
+module_ffi_allocate (emacs_env *env, int nargs, emacs_value *args,
+		     void *ignore)
+{
+  size_t size;
+  ffi_type *type = convert_type_from_lisp (env, args[0]);
+  if (type == NULL)
+    {
+      env->error_clear (env);
+      size = env->fixnum_to_int (env, args[0]);
+      if (env->error_check (env))
+	return NULL;
+    }
+  else
+    size = type->size;
+  void *mem = malloc (size);
+  return env->make_user_ptr (env, null_finalizer, mem);
+}
+
+/* (ffi-free POINTER) */
+static emacs_value
+module_ffi_free (emacs_env *env, int nargs, emacs_value *args, void *ignore)
+{
+  void *ptr = env->get_user_ptr_ptr (env, args[0]);
+  free (ptr);
+  return nil;
+}
+
+
+
 static void
 generic_callback (ffi_cif *cif, void *ret, void **args, void *d)
 {
@@ -816,6 +847,8 @@ static const struct descriptor exports[] =
   { "ffi-null-pointer", 0, 0, module_ffi_null_pointer },
   { "ffi-get-c-string", 1, 1, module_ffi_get_c_string },
   { "ffi-make-c-string", 1, 1, module_ffi_make_c_string },
+  { "ffi-allocate", 1, 1, module_ffi_allocate },
+  { "ffi-free", 1, 1, module_ffi_free },
   { "ffi-make-closure", 2, 2, module_ffi_make_closure },
   { "ffi--type-size", 1, 1, module_ffi_type_size },
   { "ffi--type-alignment", 1, 1, module_ffi_type_alignment },

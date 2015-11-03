@@ -126,6 +126,14 @@ Currently all type conversions work the same in both directions.
   null pointer.  If the argument is not a pointer or is not null,
   return `nil`.
 
+* `(ffi-allocate TYPE-OR-NUMBER)`.  Allocate some memory.  If a type
+  is given, allocates according to the type's size.  If a number is
+  given, allocates that many bytes.  The returned memory will not be
+  automatically reclaimed; you must use `ffi-free` for that.
+
+* `(ffi-free POINTER)`.  Free some memory allocated with
+  `ffi-allocate` or `ffi-make-c-string`.
+
 # Internal Functions
 
 * `(ffi--dlopen STR)`.  A simple wrapper for `dlopen` (actually
