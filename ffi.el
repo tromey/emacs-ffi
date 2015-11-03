@@ -98,6 +98,6 @@ SLOT-NAME is a symbol and TYPE is an FFI type descriptor."
     `(defvar ,name ,type-description ,docstring)))
 
 (defsubst ffi-aref (array type index)
-  (ffi--mem-ref (ffi-pointer+ array index) type))
+  (ffi--mem-ref (ffi-pointer+ array (* index (ffi--type-size type)) type))
 
 (provide 'ffi)
