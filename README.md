@@ -105,6 +105,12 @@ Currently all type conversions work the same in both directions.
   `define-ffi-struct` makes accessors for each slot of the form
   `NAME-SLOT-NAME`.  `setf` works on these accessors.
 
+* `(ffi-pointer+ POINTER NUMBER)`.  Pointer math in Lisp.
+
+* `(ffi-pointer-null-p POINTER)`.  Return `t` if the argument is a
+  null pointer.  If the argument is not a pointer or is not null,
+  return `nil`.
+
 # Internal Functions
 
 * `(ffi--dlopen STR)`.  A simple wrapper for `dlopen` (actually
@@ -142,8 +148,6 @@ Currently all type conversions work the same in both directions.
 * `(ffi--mem-set POINTER TYPE VALUE)`.  Copy the Lisp value to the
   memory pointed at by the pointer, using the type to guide the
   conversion.  This is the Lisp equivalent of `*pointer = value` in C.
-
-* `(ffi--pointer+ POINTER NUMBER)`.  Pointer math in Lisp.
 
 * `(ffi--type-size TYPE)`.  Return the size of TYPE.
 

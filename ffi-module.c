@@ -9,6 +9,7 @@
 int plugin_is_GPL_compatible;
 
 static emacs_value nil;
+static emacs_value emacs_true;
 static emacs_value wrong_type_argument;
 static emacs_value error;
 
@@ -499,7 +500,7 @@ module_ffi_mem_set (emacs_env *env, int nargs, emacs_value *args, void *ignore)
   return nil;
 }
 
-/* (ffi--pointer+ POINTER NUM) */
+/* (ffi-pointer+ POINTER NUM) */
 static emacs_value
 module_ffi_pointer_plus (emacs_env *env, int nargs, emacs_value *args,
 			 void *ignore)
@@ -511,6 +512,20 @@ module_ffi_pointer_plus (emacs_env *env, int nargs, emacs_value *args,
   if (env->error_check (env))
     return NULL;
   return env->make_user_ptr (env, null_finalizer, ptr);
+}
+
+/* (ffi-pointer-null-p POINTER) */
+static emacs_value
+module_ffi_pointer_null_p (emacs_env *env, int nargs, emacs_value *args,
+			   void *ignore)
+{
+  void *ptr = env->get_user_ptr_ptr (env, args[0]);
+  if (env->error_check (env))
+    {
+      env->error_clear (env);
+      return nil;
+    }
+  return ptr ? emacs_true : nil;
 }
 
 /* (ffi-get-c-string POINTER) */
@@ -717,6 +732,7 @@ static const struct descriptor exports[] =
   { "ffi--mem-ref", 2, 2, module_ffi_mem_ref },
   { "ffi--mem-set", 3, 3, module_ffi_mem_set },
   { "ffi-pointer+", 2, 2, module_ffi_pointer_plus },
+  { "ffi-pointer-null-p", 1, 1, module_ffi_pointer_null_p },
   { "ffi-get-c-string", 1, 1, module_ffi_get_c_string },
   { "ffi-make-closure", 2, 2, module_ffi_make_closure },
   { "ffi--type-size", 1, 1, module_ffi_type_size },
@@ -780,6 +796,7 @@ emacs_module_init (struct emacs_runtime *runtime)
   init_type_alias (":bool", true, sizeof (bool));
 
   if (!get_global (env, &nil, "nil")
+      || !get_global (env, &emacs_true, "t")
       || !get_global (env, &wrong_type_argument, "wrong-type-argument")
       || !get_global (env, &error, "error"))
     return -1;
