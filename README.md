@@ -171,12 +171,6 @@ Currently all type conversions work the same in both directions.
 * Array types.  Since these can't be arguments or results we can just
   handle something like `(:array TYPE NUM)` in `define-ffi-struct`.
 
-* Union types.  I think we'll need a hack to make this work nicely
-  with FFI.  In particular we'll need a new `ffi_type` that is
-  `FFI_TYPE_STRUCT` but where we hack the size and alignment to match
-  the largest size and offset of the elements.  Not sure this will
-  even work.
-
 * Add a `:c-string` type; for arguments this would be `const char *`
   and for results it would automatically wrap as a new C string.  One
   issue is for results you may want to automatically free the returned
