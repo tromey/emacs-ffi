@@ -116,16 +116,6 @@ unwrap_pointer (emacs_env *env, emacs_value value,
   return env->get_user_ptr_ptr (env, value);
 }
 
-static emacs_value
-wrap_pointer_or_free (emacs_env *env, emacs_finalizer_function finalizer,
-		      void *ptr)
-{
-  emacs_value result = env->make_user_ptr (env, finalizer, ptr);
-  if (!result)
-    finalizer (ptr);
-  return result;
-}
-
 static char *
 copy_string (emacs_env *env, emacs_value str)
 {
@@ -583,7 +573,7 @@ module_ffi_make_c_string (emacs_env *env, int nargs, emacs_value *args,
   char *str = copy_string (env, args[0]);
   if (!str)
     return NULL;
-  return wrap_pointer_or_free (env, free, str);
+  return env->make_user_ptr (env, null_finalizer, str);
 }
 
 

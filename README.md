@@ -98,8 +98,10 @@ Currently all type conversions work the same in both directions.
   string, and return a Lisp string with those contents.
 
 * `(ffi-make-c-string STRING)`.  Allocate a C string with the same
-  contents as the given Lisp string.  The memory for the C string will
-  automatically be freed by the GC.
+  contents as the given Lisp string.  Note that the memory allocated
+  by this must be freed by the caller.  It is done this way so that
+  Lisp code has the option of transferring ownership of the pointer to
+  some C code.
 
 * `(define-ffi-struct NAME &rest SLOT...)`.  A limited form of
   `cl-defstruct` that works on foreign objects.  This defines a new
