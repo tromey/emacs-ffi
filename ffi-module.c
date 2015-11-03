@@ -116,6 +116,35 @@ unwrap_pointer (emacs_env *env, emacs_value value,
   return env->get_user_ptr_ptr (env, value);
 }
 
+static emacs_value
+wrap_pointer_or_free (emacs_env *env, emacs_finalizer_function finalizer,
+		      void *ptr)
+{
+  emacs_value result = env->make_user_ptr (env, finalizer, ptr);
+  if (!result)
+    finalizer (ptr);
+  return result;
+}
+
+static char *
+copy_string (emacs_env *env, emacs_value str)
+{
+  size_t length = 0;
+  env->copy_string_contents (env, str, NULL, &length);
+  if (env->error_check (env))
+    return NULL;
+
+  char *name = malloc (length);
+  env->copy_string_contents (env, str, name, &length);
+  if (env->error_check (env))
+    {
+      free (name);
+      return NULL;
+    }
+
+  return name;
+}
+
 
 
 /* (ffi--dlopen str) */
@@ -124,10 +153,9 @@ ffi_dlopen (emacs_env *env, int nargs, emacs_value args[], void *ignore)
 {
   lt_dlhandle handle;
 
-  size_t length = 0;
-  env->copy_string_contents (env, args[0], NULL, &length);
-  char *name = malloc (length);
-  env->copy_string_contents (env, args[0], name, &length);
+  char *name = copy_string (env, args[0]);
+  if (!name)
+    return NULL;
 
   handle = lt_dlopenext (name);
   free (name);
@@ -150,10 +178,9 @@ ffi_dlsym (emacs_env *env, int nargs, emacs_value args[], void *ignore)
   if (!handle)
     return NULL;
 
-  size_t length = 0;
-  env->copy_string_contents (env, args[0], NULL, &length);
-  char *name = malloc (length);
-  env->copy_string_contents (env, args[0], name, &length);
+  char *name = copy_string (env, args[0]);
+  if (!name)
+    return NULL;
 
   void *sym = lt_dlsym (handle, name);
   free (name);
@@ -548,6 +575,17 @@ module_ffi_get_c_string (emacs_env *env, int nargs, emacs_value *args,
   return env->make_string (env, ptr, len);
 }
 
+/* (ffi-make-c-string STRING) */
+static emacs_value
+module_ffi_make_c_string (emacs_env *env, int nargs, emacs_value *args,
+			  void *ignore)
+{
+  char *str = copy_string (env, args[0]);
+  if (!str)
+    return NULL;
+  return wrap_pointer_or_free (env, free, str);
+}
+
 
 
 static void
@@ -787,6 +825,7 @@ static const struct descriptor exports[] =
   { "ffi-pointer-null-p", 1, 1, module_ffi_pointer_null_p },
   { "ffi-null-pointer", 0, 0, module_ffi_null_pointer },
   { "ffi-get-c-string", 1, 1, module_ffi_get_c_string },
+  { "ffi-make-c-string", 1, 1, module_ffi_make_c_string },
   { "ffi-make-closure", 2, 2, module_ffi_make_closure },
   { "ffi--type-size", 1, 1, module_ffi_type_size },
   { "ffi--type-alignment", 1, 1, module_ffi_type_alignment },
