@@ -168,9 +168,6 @@ Currently all type conversions work the same in both directions.
   types have to be described at each call, and it would be good to
   have an easy way to describe this in Lisp.
 
-* Array types.  Since these can't be arguments or results we can just
-  handle something like `(:array TYPE NUM)` in `define-ffi-struct`.
-
 * Add a `:c-string` type; for arguments this would be `const char *`
   and for results it would automatically wrap as a new C string.  One
   issue is for results you may want to automatically free the returned

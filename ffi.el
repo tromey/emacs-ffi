@@ -90,4 +90,14 @@ SLOT-NAME is a symbol and TYPE is an FFI type descriptor."
 			    (lambda (types)
 			      (make-list (length types) 0))))
 
+(defmacro define-ffi-array (name type length &optional docstring)
+  ;; This is a hack until libffi gives us direct support.
+  (let ((type-description
+	 (apply #'ffi--define-struct (make-list (eval length)
+						(symbol-name type)))))
+    `(defvar ,name ,type-description ,docstring)))
+
+(defsubst ffi-aref (array type index)
+  (ffi--mem-ref (ffi-pointer+ array index) type))
+
 (provide 'ffi)
