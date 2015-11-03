@@ -42,12 +42,7 @@
 		here))
 	    types)))
 
-(defmacro define-ffi-struct (name &rest slots)
-  "Like a limited form of `cl-defstruct', but works with foreign objects.
-
-NAME must be a symbol.
-Each SLOT must be of the form `(SLOT-NAME :type TYPE)', where
-SLOT-NAME is a symbol and TYPE is an FFI type descriptor."
+(defun ffi--struct-union-helper (name slots definer-function layout-function)
   (cl-assert (symbolp name))
   (let* ((docstring (if (stringp (car slots))
 			(pop slots)))
@@ -57,20 +52,42 @@ SLOT-NAME is a symbol and TYPE is an FFI type descriptor."
 				(cl-assert (eq (cadr slot) :type))
 				(symbol-value (cl-caddr slot)))
 			      slots))
-	 (struct-type (apply #'ffi--define-struct field-types))
-	 (field-offsets (ffi--lay-out-struct field-types)))
-    (push `(defvar ,name ,struct-type ,docstring)
+	 (the-type (apply definer-function field-types))
+	 (field-offsets (funcall layout-function field-types)))
+    (push `(defvar ,name ,the-type ,docstring)
 	  result-forms)
     (cl-mapc
      (lambda (slot type offset)
-       (let* ((getter-name (intern (concat conc-name
-					   (symbol-name (car slot))))))
+       (let ((getter-name (intern (concat conc-name
+					  (symbol-name (car slot)))))
+	     (offsetter (if (> offset 0)
+			    `(ffi-pointer+ object ,offset)
+			  'object)))
 	 ;; One benefit of using defsubst here is that we don't have
 	 ;; to provide a GV setter.
-	 (push `(cl-defsubst ,getter-name (struct)
-		  (ffi--mem-ref (ffi-pointer+ struct ,offset) ,type))
+	 (push `(cl-defsubst ,getter-name (object)
+		  (ffi--mem-ref ,offsetter ,type))
 	       result-forms)))
      slots field-types field-offsets)
     (cons 'progn (nreverse result-forms))))
+
+(defmacro define-ffi-struct (name &rest slots)
+  "Like a limited form of `cl-defstruct', but works with foreign objects.
+
+NAME must be a symbol.
+Each SLOT must be of the form `(SLOT-NAME :type TYPE)', where
+SLOT-NAME is a symbol and TYPE is an FFI type descriptor."
+  (ffi--struct-union-helper name slots #'ffi--define-struct
+			    #'ffi--lay-out-struct))
+
+(defmacro define-ffi-union (name &rest slots)
+  "Like a limited form of `cl-defstruct', but works with foreign objects.
+
+NAME must be a symbol.
+Each SLOT must be of the form `(SLOT-NAME :type TYPE)', where
+SLOT-NAME is a symbol and TYPE is an FFI type descriptor."
+  (ffi--struct-union-helper name slots #'ffi--define-union
+			    (lambda (types)
+			      (make-list (length types) 0))))
 
 (provide 'ffi)

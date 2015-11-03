@@ -105,6 +105,9 @@ Currently all type conversions work the same in both directions.
   `define-ffi-struct` makes accessors for each slot of the form
   `NAME-SLOT-NAME`.  `setf` works on these accessors.
 
+* `(define-ffi-union NAME &rest SLOT...)`.  Like `define-ffi-struct`,
+  but defines a union.
+
 * `(ffi-pointer+ POINTER NUMBER)`.  Pointer math in Lisp.
 
 * `(ffi-pointer-null-p POINTER)`.  Return `t` if the argument is a
@@ -154,6 +157,9 @@ Currently all type conversions work the same in both directions.
 * `(ffi--type-alignment TYPE)`.  Return the alignment needed by TYPE.
 
 * `(ffi--define-struct &rest TYPE...)`.  Define a new foreign structure
+  type, whose fields are the indicated types.
+
+* `(ffi--define-union &rest TYPE...)`.  Define a new foreign union
   type, whose fields are the indicated types.
 
 # Partial To-Do List

@@ -72,3 +72,15 @@
     (should (eq (test-get-struct-int struct-value) 23))
     (cl-incf (test-struct-intval struct-value))
     (should (eq (test-get-struct-int struct-value) 24))))
+
+(define-ffi-union test-union
+  (cval :type :uchar)
+  (ival :type :int))
+
+(define-ffi-function test-get-union "test_get_union"
+  test-union nil test.so)
+
+(ert-deftest ffi-union ()
+  (let ((object (test-get-union)))
+    (should (eq (test-union-ival object) -1))
+    (should (eq (test-union-cval object) 255))))

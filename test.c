@@ -36,3 +36,16 @@ int test_get_struct_int (struct test_struct ts)
 {
   return ts.intval;
 }
+
+union test_union
+{
+  unsigned char cval;
+  int ival;
+};
+
+union test_union test_get_union (void)
+{
+  union test_union u;
+  u.ival = -1;
+  return u;
+}

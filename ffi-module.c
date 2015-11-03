@@ -714,6 +714,50 @@ module_ffi_define_struct (emacs_env *env, int nargs, emacs_value *args,
   return result;
 }
 
+/* (ffi--define-union &rest TYPES) */
+static emacs_value
+module_ffi_define_union (emacs_env *env, int nargs, emacs_value *args,
+			 void *ignore)
+{
+  emacs_value result = NULL;
+  ffi_type *type = malloc (sizeof (ffi_type));
+
+  type->size = 0;
+  type->alignment = 0;
+  // Super hackery, but libffi leaves no choice.
+  type->type = FFI_TYPE_STRUCT;
+  type->elements = malloc (2 * sizeof (struct ffi_type *));
+  type->elements[1] = NULL;
+
+  int i;
+  for (i = 0; i < nargs; ++i)
+    {
+      ffi_type *argtype = convert_type_from_lisp (env, args[i]);
+      if (!argtype)
+	goto fail;
+
+      // It shouldn't be possible to see an un-laid-out type here.
+      assert (argtype->size > 0);
+      assert (argtype->alignment > 0);
+
+      if (argtype->size > type->size)
+	{
+	  type->elements[0] = argtype;
+	  type->size = argtype->size;
+	}
+      if (argtype->alignment > type->alignment)
+	type->alignment = argtype->alignment;
+    }
+
+  result = env->make_user_ptr (env, free_type, type);
+  if (result)
+    return result;
+
+ fail:
+  free_type (type);
+  return result;
+}
+
 
 
 struct descriptor
@@ -738,7 +782,9 @@ static const struct descriptor exports[] =
   { "ffi--type-size", 1, 1, module_ffi_type_size },
   { "ffi--type-alignment", 1, 1, module_ffi_type_alignment },
   { "ffi--define-struct", 1, emacs_variadic_function,
-    module_ffi_define_struct }
+    module_ffi_define_struct },
+  { "ffi--define-union", 1, emacs_variadic_function,
+    module_ffi_define_union }
 };
 
 static bool
