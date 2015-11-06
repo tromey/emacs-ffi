@@ -100,4 +100,18 @@ SLOT-NAME is a symbol and TYPE is an FFI type descriptor."
 (defsubst ffi-aref (array type index)
   (ffi--mem-ref (ffi-pointer+ array (* index (ffi--type-size type))) type))
 
+(defmacro with-ffi-temporary (binding &rest body)
+  (declare (indent defun))
+  `(let ((,(car binding) (ffi-allocate ,@(cdr binding))))
+     (unwind-protect
+	 ,@body
+       (ffi-free ,(car binding)))))
+
+(defmacro with-ffi-string (binding &rest body)
+  (declare (indent defun))
+  `(let ((,(car binding) (ffi-make-c-string ,@(cdr binding))))
+     (unwind-protect
+	 ,@body
+       (ffi-free ,(car binding)))))
+
 (provide 'ffi)
