@@ -3,6 +3,11 @@ int test_function (void)
   return 27;
 }
 
+char test_function_char (void)
+{
+  return 27;
+}
+
 const char *test_c_string (void)
 {
   return "hello";

@@ -36,6 +36,7 @@ union holder
   long l;
   unsigned long ul;
   void *p;
+  ffi_arg arg;
 };
 
 struct type_descriptor
@@ -355,13 +356,19 @@ return true;
 
 static emacs_value
 convert_to_lisp (emacs_env *env, ffi_type *type, union holder *value,
-		 emacs_finalizer_function finalizer_for_struct)
+		 emacs_finalizer_function finalizer_for_struct,
+		 bool for_return)
 {
   emacs_value result;
 
-#define MAYBE_NUMBER(ftype, field)		\
-  else if (type == &ffi_type_ ## ftype)		\
-    result = env->make_fixnum (env, value->field);
+#define MAYBE_NUMBER(ftype, field)			\
+  else if (type == &ffi_type_ ## ftype)			\
+    {							\
+      if (for_return && type->size < sizeof (ffi_arg))	\
+	result = env->make_fixnum (env, value->arg);	\
+      else						\
+	result = env->make_fixnum (env, value->field);	\
+    }
 
   if (type == &ffi_type_void)
     result = nil;
@@ -461,7 +468,7 @@ module_ffi_call (emacs_env *env, int nargs, emacs_value *args, void *ignore)
 
   ffi_call (cif, fn, result, values);
 
-  lisp_result = convert_to_lisp (env, cif->rtype, result, free);
+  lisp_result = convert_to_lisp (env, cif->rtype, result, free, true);
   if (lisp_result)
     {
       // On success do not free RESULT.
@@ -489,7 +496,7 @@ module_ffi_mem_ref (emacs_env *env, int nargs, emacs_value *args, void *ignore)
   if (!type)
     return NULL;
 
-  return convert_to_lisp (env, type, ptr, null_finalizer);
+  return convert_to_lisp (env, type, ptr, null_finalizer, false);
 }
 
 /* (ffi--mem-set POINTER TYPE VALUE) */
@@ -620,7 +627,7 @@ generic_callback (ffi_cif *cif, void *ret, void **args, void *d)
   for (i = 0; i < cif->nargs; ++i)
     {
       argvalues[i] = convert_to_lisp (env, cif->arg_types[i], args[i],
-				      null_finalizer);
+				      null_finalizer, false);
       if (!argvalues[i])
 	goto fail;
     }

@@ -4,9 +4,11 @@
 (define-ffi-library test.so "test")
 
 (define-ffi-function test-function "test_function" :int nil test.so)
+(define-ffi-function test-function-char "test_function" :char nil test.so)
 
 (ert-deftest ffi-basic ()
-  (should (= (test-function) 27)))
+  (should (= (test-function) 27))
+  (should (= (test-function-char) 27)))
 
 (define-ffi-function test-c-string "test_c_string" :pointer nil test.so)
 
