@@ -13,6 +13,13 @@ static emacs_value emacs_true;
 static emacs_value wrong_type_argument;
 static emacs_value error;
 
+// Currently the emacs runtime is transient, and there is no way to
+// request an environment "out of the blue".  These are stack
+// allocated as well.  So, we stash the most recent one and clear it
+// when done.  See
+// https://github.com/aaptel/emacs-dynamic-module/issues/41
+emacs_env *closure_environment;
+
 #define ARRAY_SIZE(x) (sizeof (x) / sizeof (x[0]))
 
 union holder
@@ -77,7 +84,6 @@ static struct type_descriptor type_descriptors[] =
 // Description of a closure, freed by free_closure_desc.
 struct closure_description
 {
-  emacs_env *env;
   void *closure;
   void *code;
   emacs_value cif_ref;
@@ -466,7 +472,10 @@ module_ffi_call (emacs_env *env, int nargs, emacs_value *args, void *ignore)
   else
     result = &result_holder;
 
+  // See the comment by closure_environment.
+  closure_environment = env;
   ffi_call (cif, fn, result, values);
+  closure_environment = NULL;
 
   lisp_result = convert_to_lisp (env, cif->rtype, result, free, true);
   if (lisp_result)
@@ -620,7 +629,9 @@ static void
 generic_callback (ffi_cif *cif, void *ret, void **args, void *d)
 {
   struct closure_description *desc = d;
-  emacs_env *env = desc->env;
+  emacs_env *env = closure_environment;
+  // You may have lost.  See the comment by closure_environment.
+  assert (env);
 
   emacs_value *argvalues = malloc (cif->nargs * sizeof (emacs_value));
   int i;
@@ -658,8 +669,12 @@ free_closure_desc (void *d)
 {
   struct closure_description *desc = d;
 
-  desc->env->free_global_ref (desc->env, desc->cif_ref);
-  desc->env->free_global_ref (desc->env, desc->func_ref);
+#if 0
+  // We just leak here as there is no place to free these things.
+  // https://github.com/aaptel/emacs-dynamic-module/issues/41
+  env->free_global_ref (env, desc->cif_ref);
+  env->free_global_ref (env, desc->func_ref);
+#endif
   ffi_closure_free (desc->closure);
 }
 
@@ -687,7 +702,6 @@ module_ffi_make_closure (emacs_env *env, int nargs, emacs_value *args,
   void *writable = ffi_closure_alloc (sizeof (ffi_closure), &code);
 
   desc = malloc (sizeof (struct closure_description));
-  desc->env = env;
   desc->closure = writable;
   desc->code = code;
   desc->cif_ref = cif_ref;
