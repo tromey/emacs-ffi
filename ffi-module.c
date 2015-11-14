@@ -112,15 +112,15 @@ unwrap_pointer (emacs_env *env, emacs_value value,
 		emacs_finalizer_function expected)
 {
   emacs_finalizer_function finalizer
-    = env->get_user_ptr_finalizer (env, value);
+    = env->get_user_finalizer (env, value);
   if (finalizer == NULL)
     return NULL;
   if (finalizer != expected)
     {
-      env->error_signal (env, wrong_type_argument, value);
+      env->non_local_exit_signal (env, wrong_type_argument, value);
       return NULL;
     }
-  return env->get_user_ptr_ptr (env, value);
+  return env->get_user_ptr (env, value);
 }
 
 static char *
@@ -128,12 +128,12 @@ copy_string (emacs_env *env, emacs_value str)
 {
   size_t length = 0;
   env->copy_string_contents (env, str, NULL, &length);
-  if (env->error_check (env))
+  if (env->non_local_exit_check (env))
     return NULL;
 
   char *name = malloc (length);
   env->copy_string_contents (env, str, name, &length);
-  if (env->error_check (env))
+  if (env->non_local_exit_check (env))
     {
       free (name);
       return NULL;
@@ -161,7 +161,7 @@ ffi_dlopen (emacs_env *env, int nargs, emacs_value args[], void *ignore)
     {
       // FIXME lt_dlerror
       // FIXME use NAME here in the error
-      env->error_signal (env, error, nil);
+      env->non_local_exit_signal (env, error, nil);
       return NULL;
     }
   return env->make_user_ptr (env, null_lthandle_finalizer, handle);
@@ -198,16 +198,16 @@ convert_type_from_lisp (emacs_env *env, emacs_value ev_type)
 
   // If we have an ffi_type object, just unwrap it.
   emacs_finalizer_function finalizer
-    = env->get_user_ptr_finalizer (env, ev_type);
-  if (env->error_check (env))
+    = env->get_user_finalizer (env, ev_type);
+  if (env->non_local_exit_check (env))
     {
       // We're going to set our own error.
-      env->error_clear (env);
+      env->non_local_exit_clear (env);
     }
   else if (finalizer == free_type)
-    return env->get_user_ptr_ptr (env, ev_type);
+    return env->get_user_ptr (env, ev_type);
 
-  env->error_signal (env, wrong_type_argument, ev_type);
+  env->non_local_exit_signal (env, wrong_type_argument, ev_type);
   return NULL;
 }
 
@@ -236,7 +236,7 @@ module_ffi_prep_cif (emacs_env *env, int nargs, emacs_value args[],
     return NULL;
 
   n_types = env->vec_size (env, typevec);
-  if (env->error_check (env))
+  if (env->non_local_exit_check (env))
     return NULL;
   arg_types = malloc (n_types * sizeof (ffi_type *));
 
@@ -254,8 +254,8 @@ module_ffi_prep_cif (emacs_env *env, int nargs, emacs_value args[],
   ffi_status status;
   if (nargs == 3)
     {
-      int64_t n_fixed = env->fixnum_to_int (env, args[2]);
-      if (env->error_check (env))
+      int64_t n_fixed = env->extract_integer (env, args[2]);
+      if (env->non_local_exit_check (env))
 	goto fail;
       status = ffi_prep_cif_var (cif, FFI_DEFAULT_ABI, n_fixed,
 				 n_types, return_type, arg_types);
@@ -266,7 +266,7 @@ module_ffi_prep_cif (emacs_env *env, int nargs, emacs_value args[],
 
   if (status)
     /* FIXME add some useful message */
-    env->error_signal (env, error, nil);
+    env->non_local_exit_signal (env, error, nil);
   else
     result = env->make_user_ptr (env, free_cif, cif);
 
@@ -286,15 +286,15 @@ convert_from_lisp (emacs_env *env, ffi_type *type, emacs_value ev,
 #define MAYBE_NUMBER(ftype, field)			\
   else if (type == &ffi_type_ ## ftype)			\
     {							\
-    int64_t ival = env->fixnum_to_int (env, ev);	\
-    if (env->error_check (env))				\
+    int64_t ival = env->extract_integer (env, ev);	\
+    if (env->non_local_exit_check (env))				\
       return false;					\
   result->field = ival;					\
     }
 
   if (type == &ffi_type_void)
     {
-      env->error_signal (env, wrong_type_argument, ev);
+      env->non_local_exit_signal (env, wrong_type_argument, ev);
       return false;
     }
   MAYBE_NUMBER (sint8, i8)
@@ -315,30 +315,30 @@ convert_from_lisp (emacs_env *env, ffi_type *type, emacs_value ev,
   MAYBE_NUMBER (ulong, ul)
   else if (type == &ffi_type_float)
     {
-      double d = env->float_to_c_double (env, ev);
-      if (env->error_check (env))
+      double d = env->extract_float (env, ev);
+      if (env->non_local_exit_check (env))
 	return false;
       result->f = d;
     }
   else if (type == &ffi_type_double)
     {
-      double d = env->float_to_c_double (env, ev);
-      if (env->error_check (env))
+      double d = env->extract_float (env, ev);
+      if (env->non_local_exit_check (env))
 	return false;
       result->d = d;
     }
   else if (type == &ffi_type_pointer)
     {
-      void *p = env->get_user_ptr_ptr (env, ev);
+      void *p = env->get_user_ptr (env, ev);
       // We use the finalizer to detect whether we have a closure
       // pointer; these are converted to their code pointer, not their
       // raw pointer.
-      if (env->error_check (env))
+      if (env->non_local_exit_check (env))
 	return false;
  
       emacs_finalizer_function finalizer
-	= env->get_user_ptr_finalizer (env, ev);
-      if (env->error_check (env))
+	= env->get_user_finalizer (env, ev);
+      if (env->non_local_exit_check (env))
 	return false;
 
       if (finalizer == free_closure_desc)
@@ -351,7 +351,7 @@ convert_from_lisp (emacs_env *env, ffi_type *type, emacs_value ev,
     }
   else
     {
-      env->error_signal (env, wrong_type_argument, ev);
+      env->non_local_exit_signal (env, wrong_type_argument, ev);
       return false;
     }
 
@@ -371,9 +371,9 @@ convert_to_lisp (emacs_env *env, ffi_type *type, union holder *value,
   else if (type == &ffi_type_ ## ftype)			\
     {							\
       if (for_return && type->size < sizeof (ffi_arg))	\
-	result = env->make_fixnum (env, value->arg);	\
+	result = env->make_integer (env, value->arg);	\
       else						\
-	result = env->make_fixnum (env, value->field);	\
+	result = env->make_integer (env, value->field);	\
     }
 
   if (type == &ffi_type_void)
@@ -407,7 +407,7 @@ convert_to_lisp (emacs_env *env, ffi_type *type, union holder *value,
     }
   else
     {
-      env->error_signal (env, wrong_type_argument, nil);
+      env->non_local_exit_signal (env, wrong_type_argument, nil);
       result = NULL;
     }
 
@@ -424,8 +424,8 @@ module_ffi_call (emacs_env *env, int nargs, emacs_value *args, void *ignore)
   if (!cif)
     return NULL;
 
-  void *fn = env->get_user_ptr_ptr (env, args[1]);
-  if (env->error_check (env))
+  void *fn = env->get_user_ptr (env, args[1]);
+  if (env->non_local_exit_check (env))
     return NULL;
 
   void **values;
@@ -453,7 +453,7 @@ module_ffi_call (emacs_env *env, int nargs, emacs_value *args, void *ignore)
 	  if (cif->arg_types[i]->type == FFI_TYPE_STRUCT)
 	    {
 	      // The value is just the unwrapped pointer.
-	      values[i] = env->get_user_ptr_ptr (env, args[i]);
+	      values[i] = env->get_user_ptr (env, args[i]);
 	      if (!values[i])
 		goto fail;
 	    }
@@ -497,8 +497,8 @@ module_ffi_call (emacs_env *env, int nargs, emacs_value *args, void *ignore)
 static emacs_value
 module_ffi_mem_ref (emacs_env *env, int nargs, emacs_value *args, void *ignore)
 {
-  void *ptr = env->get_user_ptr_ptr (env, args[0]);
-  if (env->error_check (env))
+  void *ptr = env->get_user_ptr (env, args[0]);
+  if (env->non_local_exit_check (env))
     return NULL;
 
   ffi_type *type = convert_type_from_lisp (env, args[1]);
@@ -512,8 +512,8 @@ module_ffi_mem_ref (emacs_env *env, int nargs, emacs_value *args, void *ignore)
 static emacs_value
 module_ffi_mem_set (emacs_env *env, int nargs, emacs_value *args, void *ignore)
 {
-  void *ptr = env->get_user_ptr_ptr (env, args[0]);
-  if (env->error_check (env))
+  void *ptr = env->get_user_ptr (env, args[0]);
+  if (env->non_local_exit_check (env))
     return NULL;
 
   ffi_type *type = convert_type_from_lisp (env, args[1]);
@@ -522,8 +522,8 @@ module_ffi_mem_set (emacs_env *env, int nargs, emacs_value *args, void *ignore)
 
   if (type->type == FFI_TYPE_STRUCT)
     {
-      void *from = env->get_user_ptr_ptr (env, args[2]);
-      if (env->error_check (env))
+      void *from = env->get_user_ptr (env, args[2]);
+      if (env->non_local_exit_check (env))
 	return NULL;
       memcpy (ptr, from, type->size);
     }
@@ -538,11 +538,11 @@ static emacs_value
 module_ffi_pointer_plus (emacs_env *env, int nargs, emacs_value *args,
 			 void *ignore)
 {
-  char *ptr = env->get_user_ptr_ptr (env, args[0]);
-  if (env->error_check (env))
+  char *ptr = env->get_user_ptr (env, args[0]);
+  if (env->non_local_exit_check (env))
     return NULL;
-  ptr += env->fixnum_to_int (env, args[1]);
-  if (env->error_check (env))
+  ptr += env->extract_integer (env, args[1]);
+  if (env->non_local_exit_check (env))
     return NULL;
   return env->make_user_ptr (env, null_finalizer, ptr);
 }
@@ -552,10 +552,10 @@ static emacs_value
 module_ffi_pointer_null_p (emacs_env *env, int nargs, emacs_value *args,
 			   void *ignore)
 {
-  void *ptr = env->get_user_ptr_ptr (env, args[0]);
-  if (env->error_check (env))
+  void *ptr = env->get_user_ptr (env, args[0]);
+  if (env->non_local_exit_check (env))
     {
-      env->error_clear (env);
+      env->non_local_exit_clear (env);
       return nil;
     }
   return ptr ? nil : emacs_true;
@@ -574,8 +574,8 @@ static emacs_value
 module_ffi_get_c_string (emacs_env *env, int nargs, emacs_value *args,
 			 void *ignore)
 {
-  char *ptr = env->get_user_ptr_ptr (env, args[0]);
-  if (env->error_check (env))
+  char *ptr = env->get_user_ptr (env, args[0]);
+  if (env->non_local_exit_check (env))
     return NULL;
   size_t len = strlen (ptr);
   return env->make_string (env, ptr, len);
@@ -603,9 +603,9 @@ module_ffi_allocate (emacs_env *env, int nargs, emacs_value *args,
   ffi_type *type = convert_type_from_lisp (env, args[0]);
   if (type == NULL)
     {
-      env->error_clear (env);
-      size = env->fixnum_to_int (env, args[0]);
-      if (env->error_check (env))
+      env->non_local_exit_clear (env);
+      size = env->extract_integer (env, args[0]);
+      if (env->non_local_exit_check (env))
 	return NULL;
     }
   else
@@ -618,7 +618,7 @@ module_ffi_allocate (emacs_env *env, int nargs, emacs_value *args,
 static emacs_value
 module_ffi_free (emacs_env *env, int nargs, emacs_value *args, void *ignore)
 {
-  void *ptr = env->get_user_ptr_ptr (env, args[0]);
+  void *ptr = env->get_user_ptr (env, args[0]);
   free (ptr);
   return nil;
 }
@@ -648,15 +648,15 @@ generic_callback (ffi_cif *cif, void *ret, void **args, void *d)
     {
       if (cif->rtype->type == FFI_TYPE_STRUCT)
 	{
-	  void *ptr = env->get_user_ptr_ptr (env, value);
-	  if (!env->error_check (env))
+	  void *ptr = env->get_user_ptr (env, value);
+	  if (!env->non_local_exit_check (env))
 	    memcpy (ret, ptr, cif->rtype->size);
 	}
       else
 	convert_from_lisp (env, cif->rtype, value, ret);
     }
 
-  env->error_clear (env);
+  env->non_local_exit_clear (env);
 
  fail:
   // On failure we might leave the result uninitialized, but there's
@@ -711,7 +711,7 @@ module_ffi_make_closure (emacs_env *env, int nargs, emacs_value *args,
 					    desc, code);
   if (status)
     /* FIXME add some useful message */
-    env->error_signal (env, error, nil);
+    env->non_local_exit_signal (env, error, nil);
   else
     {
       emacs_value desc_val = env->make_user_ptr (env, free_closure_desc, desc);
@@ -737,7 +737,7 @@ module_ffi_type_size (emacs_env *env, int nargs, emacs_value *args,
   ffi_type *type = convert_type_from_lisp (env, args[0]);
   if (!type)
     return NULL;
-  return env->make_fixnum (env, type->size);
+  return env->make_integer (env, type->size);
 }
 
 /* (ffi--type-alignment TYPE) */
@@ -748,7 +748,7 @@ module_ffi_type_alignment (emacs_env *env, int nargs, emacs_value *args,
   ffi_type *type = convert_type_from_lisp (env, args[0]);
   if (!type)
     return NULL;
-  return env->make_fixnum (env, type->alignment);
+  return env->make_integer (env, type->alignment);
 }
 
 
@@ -789,7 +789,7 @@ module_ffi_define_struct (emacs_env *env, int nargs, emacs_value *args,
   if (ffi_prep_cif (&temp_cif, FFI_DEFAULT_ABI, 0, type, NULL) != FFI_OK)
     {
       /* FIXME add some useful message */
-      env->error_signal (env, error, nil);
+      env->non_local_exit_signal (env, error, nil);
       goto fail;
     }
 
