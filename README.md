@@ -1,5 +1,6 @@
-This is a simple FFI for Emacs.  It is based on libffi and relies on
-the dynamic modules work to be loaded into Emacs.
+This is an FFI for Emacs.  It is based on libffi and relies on the
+dynamic modules work to be loaded into Emacs.  It is relatively
+full-featured, but for the time being low-level.
 
 I'd appreciate your feedback, either via email or issues on github.
 
@@ -199,23 +200,6 @@ Currently all type conversions work the same in both directions.
 * `(ffi--define-union &rest TYPE...)`.  Define a new foreign union
   type, whose fields are the indicated types.
 
-# Partial To-Do List
+# To-Do List
 
-* Add nice support for varargs calls.  The main issue is that the
-  types have to be described at each call, and it would be good to
-  have an easy way to describe this in Lisp.
-
-* Add a `:c-string` type; for arguments this would be `const char *`
-  and for results it would automatically wrap as a new C string.  One
-  issue is for results you may want to automatically free the returned
-  pointer, so this would require some extra info.
-
-  Actually I plan to steal some nice ideas from CFFI to make this more
-  general.
-
-* Typed pointers.
-
-* A way to deal with integer truncation.  Or just add bignums to
-  Emacs.
-
-* A CIF that refers to other types has to keep them alive.
+* See the github issues.
