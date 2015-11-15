@@ -75,6 +75,10 @@ Currently all type conversions work the same in both directions.
 
 * `(define-ffi-function NAME C-NAME RETURN-TYPE ARG-TYPES LIBRARY)`.
 
+  A macro that defines a new Lisp function.  It takes as many
+  arguments as were in ARG-TYPES.  (While there is internal support
+  for varargs functions, it is not exposed by `define-ffi-function`.)
+
   NAME is the symbol to define.  C-NAME is a string, the name of the
   underlying C function.
 
@@ -85,9 +89,10 @@ Currently all type conversions work the same in both directions.
   LIBRARY is the library where the C function should be found.  This
   is just a symbol, most usually defined with `define-ffi-library`.
 
-  `define-ffi-function` defines a new Lisp function.  It takes as many
-  arguments as were in ARG-TYPES.  (While there is internal support
-  for varargs functions, it is not exposed by `define-ffi-function`.)
+* `(ffi-lambda FUNCTION RETURN-TYPE ARG-TYPES)`.  Take a C function
+  pointer and a description of its type, and return a Lisp function.
+  Unlike `define-ffi-function`, this is not a macro.  You may wish to
+  cache these as each call to `ffi-lambda` makes a new CIF.
 
 * `(ffi-make-closure CIF FUNCTION)`.  Make a C pointer to the Lisp
   function.  This pointer can then be passed to C functions that need

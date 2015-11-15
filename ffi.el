@@ -29,6 +29,11 @@
        ;; FIXME do we even need a separate prep?
        (ffi--call ,cif ,function ,@arg-names))))
 
+(defun ffi-lambda (function-pointer return-type arg-types)
+  (let* ((cif (ffi--prep-cif return-type (vconcat arg-types))))
+    (lambda (&rest args)		; lame
+      (apply #'ffi--call cif function-pointer args))))
+
 (defsubst ffi--align (offset align)
   (+ offset (mod (- align (mod offset align)) align)))
 
