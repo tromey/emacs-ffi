@@ -30,6 +30,15 @@ Primitive types are described using keywords:
   the same name and internally are just aliases for one of the other
   integral types.
 
+* `:bool`.  Booleans are treated in a Lisp style.  As an argument
+  type, `nil` is converted to a C `false` value, and other Lisp values
+  are converted to `true`.  As a return type, `true` is converted to
+  `t` and `false` is converted to `nil`.  Note that `0` is *not*
+  converted to `false`.  If you want a "numeric" boolean type, you can
+  use the size and alignment to find the corresponding primitive type
+  and use that instead.
+
+
 Structure types are represented by a user-pointer object that wraps an
 `ffi_type`.  The best way to manipulate structures is to use
 `define-ffi-struct`, which is a limited form of `cl-defstruct` that

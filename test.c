@@ -1,3 +1,5 @@
+#include <stdbool.h>
+
 int test_function (void)
 {
   return 27;
@@ -6,6 +8,11 @@ int test_function (void)
 char test_function_char (void)
 {
   return 27;
+}
+
+bool test_not (bool x)
+{
+  return !x;
 }
 
 const char *test_c_string (void)

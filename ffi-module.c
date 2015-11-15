@@ -13,6 +13,9 @@ static emacs_value emacs_true;
 static emacs_value wrong_type_argument;
 static emacs_value error;
 
+// It's not totally clear that this is valid to do with libffi.
+static ffi_type bool_type;
+
 // Currently the emacs runtime is transient, and there is no way to
 // request an environment "out of the blue".  These are stack
 // allocated as well.  So, we stash the most recent one and clear it
@@ -24,6 +27,7 @@ emacs_env *closure_environment;
 
 union holder
 {
+  bool b;
   int8_t i8;
   uint8_t ui8;
   int16_t i16;
@@ -78,7 +82,7 @@ static struct type_descriptor type_descriptors[] =
 
   { ":size_t", NULL },
   { ":ssize_t", NULL },
-  { ":bool", NULL }
+  { ":bool", &bool_type }
 };
 
 // Description of a closure, freed by free_closure_desc.
@@ -349,6 +353,12 @@ convert_from_lisp (emacs_env *env, ffi_type *type, emacs_value ev,
 
       result->p = p;
     }
+  else if (type == &bool_type)
+    {
+      result->b = env->is_not_nil (env, ev);
+      if (env->non_local_exit_check (env))
+	return false;
+    }
   else
     {
       env->non_local_exit_signal (env, wrong_type_argument, ev);
@@ -357,7 +367,7 @@ convert_from_lisp (emacs_env *env, ffi_type *type, emacs_value ev,
 
 #undef MAYBE_NUMBER
 
-return true;
+  return true;
 }
 
 static emacs_value
@@ -400,6 +410,8 @@ convert_to_lisp (emacs_env *env, ffi_type *type, union holder *value,
     result = env->make_float (env, value->d);
   else if (type == &ffi_type_pointer)
     result = env->make_user_ptr (env, null_finalizer, value->p);
+  else if (type == &bool_type)
+    result = value->b ? emacs_true : nil;
   else if (type->type == FFI_TYPE_STRUCT)
     {
       // The argument itself is the data.
@@ -922,24 +934,29 @@ init_type_alias (const char *name, bool is_unsigned, int size)
     }
   assert (i >= 0);
 
-  ffi_type **type = &type_descriptors[i].type;
+  ffi_type *type;
   switch (size)
     {
     case 1:
-      *type = is_unsigned ? &ffi_type_sint8 : &ffi_type_uint8;
+      type = is_unsigned ? &ffi_type_sint8 : &ffi_type_uint8;
       break;
     case 2:
-      *type = is_unsigned ? &ffi_type_sint16 : &ffi_type_uint16;
+      type = is_unsigned ? &ffi_type_sint16 : &ffi_type_uint16;
       break;
     case 4:
-      *type = is_unsigned ? &ffi_type_sint32 : &ffi_type_uint32;
+      type = is_unsigned ? &ffi_type_sint32 : &ffi_type_uint32;
       break;
     case 8:
-      *type = is_unsigned ? &ffi_type_sint64 : &ffi_type_uint64;
+      type = is_unsigned ? &ffi_type_sint64 : &ffi_type_uint64;
       break;
     default:
       abort ();
     }
+
+  if (type_descriptors[i].type)
+    memcpy (type_descriptors[i].type, type, sizeof (*type));
+  else
+    type_descriptors[i].type = type;
 }
 
 int

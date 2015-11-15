@@ -89,3 +89,11 @@
 
 (ert-deftest ffi-null ()
   (should (ffi-pointer-null-p (ffi-null-pointer))))
+
+(define-ffi-function test-not "test_not" :bool (:bool) test.so)
+
+(ert-deftest ffi-boolean ()
+  (should (eq (test-not nil) t))
+  (should (eq (test-not t) nil))
+  (should (eq (test-not 0) nil))
+  (should (eq (test-not "hi") nil)))
