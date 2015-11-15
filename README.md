@@ -126,6 +126,9 @@ Currently all type conversions work the same in both directions.
   null pointer.  If the argument is not a pointer or is not null,
   return `nil`.
 
+* `(ffi-pointer= POINTER1 POINTER2)`.  Return `t` if the two pointers
+  are equal, `nil` if not.
+
 * `(ffi-allocate TYPE-OR-NUMBER)`.  Allocate some memory.  If a type
   is given, allocates according to the type's size.  If a number is
   given, allocates that many bytes.  The returned memory will not be

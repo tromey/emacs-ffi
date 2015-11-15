@@ -561,6 +561,20 @@ module_ffi_pointer_null_p (emacs_env *env, int nargs, emacs_value *args,
   return ptr ? nil : emacs_true;
 }
 
+/* (ffi-pointer= POINTER1 POINTER2) */
+static emacs_value
+module_ffi_pointer_equal (emacs_env *env, int nargs, emacs_value *args,
+			  void *ignore)
+{
+  void *ptr1 = env->get_user_ptr (env, args[0]);
+  if (env->non_local_exit_check (env))
+    return NULL;
+  void *ptr2 = env->get_user_ptr (env, args[0]);
+  if (env->non_local_exit_check (env))
+    return NULL;
+  return ptr1 == ptr2 ? emacs_true : nil;
+}
+
 /* (ffi-null-pointer) */
 static emacs_value
 module_ffi_null_pointer (emacs_env *env, int nargs, emacs_value *args,
@@ -871,6 +885,7 @@ Create a `call interface' object that can be passed to `ffi--call'."},
   { "ffi--mem-set", 3, 3, module_ffi_mem_set },
   { "ffi-pointer+", 2, 2, module_ffi_pointer_plus },
   { "ffi-pointer-null-p", 1, 1, module_ffi_pointer_null_p },
+  { "ffi-pointer=", 2, 2, module_ffi_pointer_equal },
   { "ffi-null-pointer", 0, 0, module_ffi_null_pointer },
   { "ffi-get-c-string", 1, 1, module_ffi_get_c_string },
   { "ffi-make-c-string", 1, 1, module_ffi_make_c_string },
