@@ -853,13 +853,19 @@ struct descriptor
   const char *name;
   int min, max;
   emacs_subr subr;
+  const char *docstring;
 };
 
 static const struct descriptor exports[] =
 {
-  { "ffi--dlopen", 1, 1, ffi_dlopen },
-  { "ffi--dlsym", 2, 2, ffi_dlsym },
-  { "ffi--prep-cif", 1, emacs_variadic_function, module_ffi_prep_cif },
+  { "ffi--dlopen", 1, 1, ffi_dlopen, "\
+Open a shared library and return a handle representing it."},
+  { "ffi--dlsym", 2, 2, ffi_dlsym, "\
+Look up a C symbol in a shared library.\n\
+Given the name of a C symbol (a string) and a shared library handle,\n\
+look up the symbol in the library and return a pointer to the symbol."},
+  { "ffi--prep-cif", 1, emacs_variadic_function, module_ffi_prep_cif, "\
+Create a `call interface' object that can be passed to `ffi--call'."},
   { "ffi--call", 2, emacs_variadic_function, module_ffi_call },
   { "ffi--mem-ref", 2, 2, module_ffi_mem_ref },
   { "ffi--mem-set", 3, 3, module_ffi_mem_set },
@@ -952,6 +958,7 @@ emacs_module_init (struct emacs_runtime *runtime)
     {
       emacs_value func = env->make_function (env, exports[i].min,
 					     exports[i].max, exports[i].subr,
+					     exports[i].docstring,
 					     NULL);
       if (!func)
 	return -1;
