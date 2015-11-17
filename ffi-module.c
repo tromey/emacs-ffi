@@ -970,7 +970,7 @@ emacs_module_init (struct emacs_runtime *runtime)
 
   init_type_alias (":size_t", true, sizeof (size_t));
   init_type_alias (":ssize_t", false, sizeof (ssize_t));
-  init_type_alias (":ptrdiff_t", true, sizeof (ptrdiff_t));
+  init_type_alias (":ptrdiff_t", false, sizeof (ptrdiff_t));
   init_type_alias (":bool", true, sizeof (bool));
 
   if (!get_global (env, &nil, "nil")
