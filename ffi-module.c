@@ -82,6 +82,7 @@ static struct type_descriptor type_descriptors[] =
 
   { ":size_t", NULL },
   { ":ssize_t", NULL },
+  { ":ptrdiff_t", NULL },
   { ":bool", &bool_type }
 };
 
@@ -969,6 +970,7 @@ emacs_module_init (struct emacs_runtime *runtime)
 
   init_type_alias (":size_t", true, sizeof (size_t));
   init_type_alias (":ssize_t", false, sizeof (ssize_t));
+  init_type_alias (":ptrdiff_t", true, sizeof (ptrdiff_t));
   init_type_alias (":bool", true, sizeof (bool));
 
   if (!get_global (env, &nil, "nil")
