@@ -83,7 +83,8 @@ static struct type_descriptor type_descriptors[] =
   { ":size_t", NULL },
   { ":ssize_t", NULL },
   { ":ptrdiff_t", NULL },
-  { ":bool", &bool_type }
+  { ":bool", &bool_type },
+  { ":wchar_t", NULL }
 };
 
 // Description of a closure, freed by free_closure_desc.
@@ -960,6 +961,14 @@ init_type_alias (const char *name, bool is_unsigned, int size)
     type_descriptors[i].type = type;
 }
 
+#define INIT_TYPE_ALIAS(Type)					\
+  do								\
+    {								\
+      Type val = (val) -1L;					\
+      init_type_alias (":" #Type, val > 0, sizeof (Type));	\
+    }								\
+  while (0)
+
 int
 emacs_module_init (struct emacs_runtime *runtime)
 {
@@ -968,10 +977,11 @@ emacs_module_init (struct emacs_runtime *runtime)
 
   lt_dlinit ();
 
-  init_type_alias (":size_t", true, sizeof (size_t));
-  init_type_alias (":ssize_t", false, sizeof (ssize_t));
-  init_type_alias (":ptrdiff_t", false, sizeof (ptrdiff_t));
-  init_type_alias (":bool", true, sizeof (bool));
+  INIT_TYPE_ALIAS (size_t);
+  INIT_TYPE_ALIAS (ssize_t);
+  INIT_TYPE_ALIAS (ptrdiff_t);
+  INIT_TYPE_ALIAS (bool);
+  INIT_TYPE_ALIAS (wchar_t);
 
   if (!get_global (env, &nil, "nil")
       || !get_global (env, &emacs_true, "t")
