@@ -27,9 +27,9 @@ Primitive types are described using keywords:
   the sense that they aren't differentiated based on what they point
   to.
 
-* `:size_t`, `:ssize_t`, `:ptrdiff_t`.  These correspond to the C type
-  of the same name and internally are just aliases for one of the
-  other integral types.
+* `:size_t`, `:ssize_t`, `:ptrdiff_t`, `:wchar_t`.  These correspond
+  to the C type of the same name and internally are just aliases for
+  one of the other integral types.
 
 * `:bool`.  Booleans are treated in a Lisp style.  As an argument
   type, `nil` is converted to a C `false` value, and other Lisp values
