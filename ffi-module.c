@@ -260,7 +260,7 @@ module_ffi_prep_cif (emacs_env *env, int nargs, emacs_value args[],
   ffi_status status;
   if (nargs == 3)
     {
-      int64_t n_fixed = env->extract_integer (env, args[2]);
+      intmax_t n_fixed = env->extract_integer (env, args[2]);
       if (env->non_local_exit_check (env))
 	goto fail;
       status = ffi_prep_cif_var (cif, FFI_DEFAULT_ABI, n_fixed,
@@ -292,7 +292,7 @@ convert_from_lisp (emacs_env *env, ffi_type *type, emacs_value ev,
 #define MAYBE_NUMBER(ftype, field)			\
   else if (type == &ffi_type_ ## ftype)			\
     {							\
-    int64_t ival = env->extract_integer (env, ev);	\
+    intmax_t ival = env->extract_integer (env, ev);	\
     if (env->non_local_exit_check (env))				\
       return false;					\
   result->field = ival;					\
