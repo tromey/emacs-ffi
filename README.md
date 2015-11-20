@@ -1,6 +1,7 @@
 This is an FFI for Emacs.  It is based on libffi and relies on the
-dynamic modules work to be loaded into Emacs.  It is relatively
-full-featured, but for the time being low-level.
+dynamic modules work (available on the Emacs 25 branch) in order to be
+loaded into Emacs.  It is relatively full-featured, but for the time
+being low-level.
 
 I'd appreciate your feedback, either via email or issues on github.
 

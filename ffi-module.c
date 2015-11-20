@@ -1,5 +1,5 @@
 
-#include "emacs_module.h"
+#include "emacs-module.h"
 
 #include <ffi.h>
 #include <ltdl.h>

@@ -1,5 +1,5 @@
 # Where your dynamic-module-enabled Emacs build lies.
-EMACS_BUILDDIR = /home/tromey/Emacs/dynamic-modules-branch
+EMACS_BUILDDIR = /home/tromey/Emacs/emacs
 
 LDFLAGS = -shared
 LIBS = -lffi -lltdl
