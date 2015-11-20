@@ -132,7 +132,7 @@ unwrap_pointer (emacs_env *env, emacs_value value,
 static char *
 copy_string (emacs_env *env, emacs_value str)
 {
-  size_t length = 0;
+  ptrdiff_t length = 0;
   env->copy_string_contents (env, str, NULL, &length);
   if (env->non_local_exit_check (env))
     return NULL;
@@ -230,9 +230,9 @@ static emacs_value
 module_ffi_prep_cif (emacs_env *env, int nargs, emacs_value args[],
 		     void *ignore)
 {
-  unsigned int i;
+  ptrdiff_t i;
   ffi_type *return_type;
-  size_t n_types;
+  ptrdiff_t n_types;
   ffi_type **arg_types;
   emacs_value typevec = args[1];
   emacs_value result = NULL;
@@ -605,7 +605,7 @@ module_ffi_get_c_string (emacs_env *env, int nargs, emacs_value *args,
   char *ptr = env->get_user_ptr (env, args[0]);
   if (env->non_local_exit_check (env))
     return NULL;
-  size_t len = strlen (ptr);
+  ptrdiff_t len = strlen (ptr);
   return env->make_string (env, ptr, len);
 }
 
