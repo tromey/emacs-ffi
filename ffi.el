@@ -112,11 +112,31 @@ SLOT-NAME is a symbol and TYPE is an FFI type descriptor."
 	 ,@body
        (ffi-free ,(car binding)))))
 
+(defmacro with-ffi-temporaries (bindings &rest body)
+  (declare (indent defun))
+  (let ((first-binding (car bindings))
+	(rest-bindings (cdr bindings)))
+    (if rest-bindings
+	`(with-ffi-temporary ,first-binding
+	   (with-ffi-temporaries ,rest-bindings
+	     ,@body))
+      `(with-ffi-temporary ,first-binding ,@body))))
+
 (defmacro with-ffi-string (binding &rest body)
   (declare (indent defun))
   `(let ((,(car binding) (ffi-make-c-string ,@(cdr binding))))
      (unwind-protect
 	 ,@body
        (ffi-free ,(car binding)))))
+
+(defmacro with-ffi-strings (bindings &rest body)
+  (declare (indent defun))
+  (let ((first-binding (car bindings))
+	(rest-bindings (cdr bindings)))
+    (if rest-bindings
+	`(with-ffi-string ,first-binding
+	   (with-ffi-strings ,rest-bindings
+	     ,@body))
+      `(with-ffi-string ,first-binding ,@body))))
 
 (provide 'ffi)
