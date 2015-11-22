@@ -152,7 +152,7 @@ copy_string (emacs_env *env, emacs_value str)
 
 /* (ffi--dlopen str) */
 static emacs_value
-ffi_dlopen (emacs_env *env, int nargs, emacs_value args[], void *ignore)
+ffi_dlopen (emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *ignore)
 {
   lt_dlhandle handle;
 
@@ -175,7 +175,7 @@ ffi_dlopen (emacs_env *env, int nargs, emacs_value args[], void *ignore)
 
 /* (ffi--dlsym symbol-name handle) */
 static emacs_value
-ffi_dlsym (emacs_env *env, int nargs, emacs_value args[], void *ignore)
+ffi_dlsym (emacs_env *env, ptrdiff_t nargs, emacs_value args[], void *ignore)
 {
   lt_dlhandle handle = unwrap_pointer (env, args[1], null_lthandle_finalizer);
   if (!handle)
@@ -227,7 +227,7 @@ free_cif (void *p)
 
 /* (ffi--prep-cif return-type arg-types &optional n-fixed-args) */
 static emacs_value
-module_ffi_prep_cif (emacs_env *env, int nargs, emacs_value args[],
+module_ffi_prep_cif (emacs_env *env, ptrdiff_t nargs, emacs_value args[],
 		     void *ignore)
 {
   ptrdiff_t i;
@@ -432,7 +432,7 @@ convert_to_lisp (emacs_env *env, ffi_type *type, union holder *value,
 
 /* (ffi--call cif function &rest args) */
 static emacs_value
-module_ffi_call (emacs_env *env, int nargs, emacs_value *args, void *ignore)
+module_ffi_call (emacs_env *env, ptrdiff_t nargs, emacs_value *args, void *ignore)
 {
   ffi_cif *cif = unwrap_pointer (env, args[0], free_cif);
   if (!cif)
@@ -509,7 +509,8 @@ module_ffi_call (emacs_env *env, int nargs, emacs_value *args, void *ignore)
 
 /* (ffi--mem-ref POINTER TYPE) */
 static emacs_value
-module_ffi_mem_ref (emacs_env *env, int nargs, emacs_value *args, void *ignore)
+module_ffi_mem_ref (emacs_env *env, ptrdiff_t nargs, emacs_value *args,
+		    void *ignore)
 {
   void *ptr = env->get_user_ptr (env, args[0]);
   if (env->non_local_exit_check (env))
@@ -524,7 +525,8 @@ module_ffi_mem_ref (emacs_env *env, int nargs, emacs_value *args, void *ignore)
 
 /* (ffi--mem-set POINTER TYPE VALUE) */
 static emacs_value
-module_ffi_mem_set (emacs_env *env, int nargs, emacs_value *args, void *ignore)
+module_ffi_mem_set (emacs_env *env, ptrdiff_t nargs, emacs_value *args,
+		    void *ignore)
 {
   void *ptr = env->get_user_ptr (env, args[0]);
   if (env->non_local_exit_check (env))
@@ -549,7 +551,7 @@ module_ffi_mem_set (emacs_env *env, int nargs, emacs_value *args, void *ignore)
 
 /* (ffi-pointer+ POINTER NUM) */
 static emacs_value
-module_ffi_pointer_plus (emacs_env *env, int nargs, emacs_value *args,
+module_ffi_pointer_plus (emacs_env *env, ptrdiff_t nargs, emacs_value *args,
 			 void *ignore)
 {
   char *ptr = env->get_user_ptr (env, args[0]);
@@ -563,7 +565,7 @@ module_ffi_pointer_plus (emacs_env *env, int nargs, emacs_value *args,
 
 /* (ffi-pointer-null-p POINTER) */
 static emacs_value
-module_ffi_pointer_null_p (emacs_env *env, int nargs, emacs_value *args,
+module_ffi_pointer_null_p (emacs_env *env, ptrdiff_t nargs, emacs_value *args,
 			   void *ignore)
 {
   void *ptr = env->get_user_ptr (env, args[0]);
@@ -577,7 +579,7 @@ module_ffi_pointer_null_p (emacs_env *env, int nargs, emacs_value *args,
 
 /* (ffi-pointer= POINTER1 POINTER2) */
 static emacs_value
-module_ffi_pointer_equal (emacs_env *env, int nargs, emacs_value *args,
+module_ffi_pointer_equal (emacs_env *env, ptrdiff_t nargs, emacs_value *args,
 			  void *ignore)
 {
   void *ptr1 = env->get_user_ptr (env, args[0]);
@@ -591,7 +593,7 @@ module_ffi_pointer_equal (emacs_env *env, int nargs, emacs_value *args,
 
 /* (ffi-null-pointer) */
 static emacs_value
-module_ffi_null_pointer (emacs_env *env, int nargs, emacs_value *args,
+module_ffi_null_pointer (emacs_env *env, ptrdiff_t nargs, emacs_value *args,
 			 void *ignore)
 {
   return env->make_user_ptr (env, null_finalizer, NULL);
@@ -599,7 +601,7 @@ module_ffi_null_pointer (emacs_env *env, int nargs, emacs_value *args,
 
 /* (ffi-get-c-string POINTER) */
 static emacs_value
-module_ffi_get_c_string (emacs_env *env, int nargs, emacs_value *args,
+module_ffi_get_c_string (emacs_env *env, ptrdiff_t nargs, emacs_value *args,
 			 void *ignore)
 {
   char *ptr = env->get_user_ptr (env, args[0]);
@@ -611,7 +613,7 @@ module_ffi_get_c_string (emacs_env *env, int nargs, emacs_value *args,
 
 /* (ffi-make-c-string STRING) */
 static emacs_value
-module_ffi_make_c_string (emacs_env *env, int nargs, emacs_value *args,
+module_ffi_make_c_string (emacs_env *env, ptrdiff_t nargs, emacs_value *args,
 			  void *ignore)
 {
   char *str = copy_string (env, args[0]);
@@ -624,7 +626,7 @@ module_ffi_make_c_string (emacs_env *env, int nargs, emacs_value *args,
 
 /* (ffi-allocate TYPE-OR-INT) */
 static emacs_value
-module_ffi_allocate (emacs_env *env, int nargs, emacs_value *args,
+module_ffi_allocate (emacs_env *env, ptrdiff_t nargs, emacs_value *args,
 		     void *ignore)
 {
   size_t size;
@@ -644,7 +646,8 @@ module_ffi_allocate (emacs_env *env, int nargs, emacs_value *args,
 
 /* (ffi-free POINTER) */
 static emacs_value
-module_ffi_free (emacs_env *env, int nargs, emacs_value *args, void *ignore)
+module_ffi_free (emacs_env *env, ptrdiff_t nargs, emacs_value *args,
+		 void *ignore)
 {
   void *ptr = env->get_user_ptr (env, args[0]);
   free (ptr);
@@ -708,7 +711,7 @@ free_closure_desc (void *d)
 
 /* (ffi-make-closure CIF FUNCTION) */
 static emacs_value
-module_ffi_make_closure (emacs_env *env, int nargs, emacs_value *args,
+module_ffi_make_closure (emacs_env *env, ptrdiff_t nargs, emacs_value *args,
 			 void *ignore)
 {
   emacs_value cif_ref = NULL;
@@ -759,7 +762,7 @@ module_ffi_make_closure (emacs_env *env, int nargs, emacs_value *args,
 
 /* (ffi--type-size TYPE) */
 static emacs_value
-module_ffi_type_size (emacs_env *env, int nargs, emacs_value *args,
+module_ffi_type_size (emacs_env *env, ptrdiff_t nargs, emacs_value *args,
 		      void *ignore)
 {
   ffi_type *type = convert_type_from_lisp (env, args[0]);
@@ -770,7 +773,7 @@ module_ffi_type_size (emacs_env *env, int nargs, emacs_value *args,
 
 /* (ffi--type-alignment TYPE) */
 static emacs_value
-module_ffi_type_alignment (emacs_env *env, int nargs, emacs_value *args,
+module_ffi_type_alignment (emacs_env *env, ptrdiff_t nargs, emacs_value *args,
 			   void *ignore)
 {
   ffi_type *type = convert_type_from_lisp (env, args[0]);
@@ -791,7 +794,7 @@ free_type (void *t)
 
 /* (ffi--define-struct &rest TYPES) */
 static emacs_value
-module_ffi_define_struct (emacs_env *env, int nargs, emacs_value *args,
+module_ffi_define_struct (emacs_env *env, ptrdiff_t nargs, emacs_value *args,
 			  void *ignore)
 {
   emacs_value result = NULL;
@@ -832,7 +835,7 @@ module_ffi_define_struct (emacs_env *env, int nargs, emacs_value *args,
 
 /* (ffi--define-union &rest TYPES) */
 static emacs_value
-module_ffi_define_union (emacs_env *env, int nargs, emacs_value *args,
+module_ffi_define_union (emacs_env *env, ptrdiff_t nargs, emacs_value *args,
 			 void *ignore)
 {
   emacs_value result = NULL;
