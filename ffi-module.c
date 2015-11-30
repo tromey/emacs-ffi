@@ -292,10 +292,10 @@ convert_from_lisp (emacs_env *env, ffi_type *type, emacs_value ev,
 #define MAYBE_NUMBER(ftype, field)			\
   else if (type == &ffi_type_ ## ftype)			\
     {							\
-    intmax_t ival = env->extract_integer (env, ev);	\
-    if (env->non_local_exit_check (env))				\
-      return false;					\
-  result->field = ival;					\
+      intmax_t ival = env->extract_integer (env, ev);	\
+      if (env->non_local_exit_check (env))		\
+	return false;					\
+      result->field = ival;				\
     }
 
   if (type == &ffi_type_void)
@@ -890,11 +890,22 @@ struct descriptor
 static const struct descriptor exports[] =
 {
   { "ffi--dlopen", 1, 1, ffi_dlopen, "\
-Open a shared library and return a handle representing it."},
+Open a shared library and return a handle representing it.\n\
+NAME is the name of the shared library to open, a string.\n\
+If no file name suffix is provided, `ffi--dlopen' will provide\n\
+a suffix suitable for the current platform.\n\
+\n\
+\(fn NAME)"},
+
   { "ffi--dlsym", 2, 2, ffi_dlsym, "\
 Look up a C symbol in a shared library.\n\
-Given the name of a C symbol (a string) and a shared library handle,\n\
-look up the symbol in the library and return a pointer to the symbol."},
+NAME is the name of a C symbol, a string.\n\
+HANDLE is a handle representing a shared library, as returned by\n\
+`ffi--dlopen'.  If there is a symbol in the library named NAME,\n\
+then a pointer to it is returned.  Otherwise, this returns `nil'.\n\
+\n\
+\(fn NAME HANDLE)"},
+
   { "ffi--prep-cif", 1, emacs_variadic_function, module_ffi_prep_cif, "\
 Create a `call interface' object that can be passed to `ffi--call'."},
   { "ffi--call", 2, emacs_variadic_function, module_ffi_call },
