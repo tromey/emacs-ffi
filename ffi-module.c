@@ -117,9 +117,8 @@ static void *
 unwrap_pointer (emacs_env *env, emacs_value value,
 		emacs_finalizer_function expected)
 {
-  emacs_finalizer_function finalizer
-    = env->get_user_finalizer (env, value);
-  if (finalizer == NULL)
+  emacs_finalizer_function finalizer = env->get_user_finalizer (env, value);
+  if (env->non_local_exit_check (env))
     return NULL;
   if (finalizer != expected)
     {
@@ -203,8 +202,7 @@ convert_type_from_lisp (emacs_env *env, emacs_value ev_type)
       return type_descriptors[i].type;
 
   // If we have an ffi_type object, just unwrap it.
-  emacs_finalizer_function finalizer
-    = env->get_user_finalizer (env, ev_type);
+  emacs_finalizer_function finalizer = env->get_user_finalizer (env, ev_type);
   if (env->non_local_exit_check (env))
     {
       // We're going to set our own error.
@@ -249,10 +247,10 @@ module_ffi_prep_cif (emacs_env *env, ptrdiff_t nargs, emacs_value args[],
   for (i = 0; i < n_types; ++i)
     {
       emacs_value this_type = env->vec_get (env, typevec, i);
-      if (!this_type)
+      if (env->non_local_exit_check (env))
 	goto fail;
       arg_types[i] = convert_type_from_lisp (env, this_type);
-      if (!arg_types[i])
+      if (env->non_local_exit_check (env))
 	goto fail;
     }
 
@@ -276,7 +274,7 @@ module_ffi_prep_cif (emacs_env *env, ptrdiff_t nargs, emacs_value args[],
   else
     result = env->make_user_ptr (env, free_cif, cif);
 
-  if (!result)
+  if (env->non_local_exit_check (env))
     free_cif (cif);
  fail:
   return result;
@@ -342,8 +340,7 @@ convert_from_lisp (emacs_env *env, ffi_type *type, emacs_value ev,
       if (env->non_local_exit_check (env))
 	return false;
  
-      emacs_finalizer_function finalizer
-	= env->get_user_finalizer (env, ev);
+      emacs_finalizer_function finalizer = env->get_user_finalizer (env, ev);
       if (env->non_local_exit_check (env))
 	return false;
 
@@ -468,7 +465,7 @@ module_ffi_call (emacs_env *env, ptrdiff_t nargs, emacs_value *args, void *ignor
 	    {
 	      // The value is just the unwrapped pointer.
 	      values[i] = env->get_user_ptr (env, args[i]);
-	      if (!values[i])
+	      if (env->non_local_exit_check (env))
 		goto fail;
 	    }
 	  else
@@ -492,7 +489,7 @@ module_ffi_call (emacs_env *env, ptrdiff_t nargs, emacs_value *args, void *ignor
   closure_environment = NULL;
 
   lisp_result = convert_to_lisp (env, cif->rtype, result, free, true);
-  if (lisp_result)
+  if (!env->non_local_exit_check (env))
     {
       // On success do not free RESULT.
       result = &result_holder;
@@ -670,7 +667,7 @@ generic_callback (ffi_cif *cif, void *ret, void **args, void *d)
     {
       argvalues[i] = convert_to_lisp (env, cif->arg_types[i], args[i],
 				      null_finalizer, false);
-      if (!argvalues[i])
+      if (env->non_local_exit_check (env))
 	goto fail;
     }
 
@@ -719,10 +716,10 @@ module_ffi_make_closure (emacs_env *env, ptrdiff_t nargs, emacs_value *args,
   struct closure_description *desc = NULL;
 
   cif_ref = env->make_global_ref (env, args[0]);
-  if (!cif_ref)
+  if (env->non_local_exit_check (env))
     return NULL;
   func = env->make_global_ref (env, args[1]);
-  if (!func)
+  if (env->non_local_exit_check (env))
     goto fail;
 
   ffi_cif *cif = unwrap_pointer (env, args[0], free_cif);
@@ -746,7 +743,7 @@ module_ffi_make_closure (emacs_env *env, ptrdiff_t nargs, emacs_value *args,
   else
     {
       emacs_value desc_val = env->make_user_ptr (env, free_closure_desc, desc);
-      if (desc_val)
+      if (!env->non_local_exit_check (env))
 	return desc_val;
     }
 
@@ -825,7 +822,7 @@ module_ffi_define_struct (emacs_env *env, ptrdiff_t nargs, emacs_value *args,
     }
 
   result = env->make_user_ptr (env, free_type, type);
-  if (result)
+  if (!env->non_local_exit_check (env))
     return result;
 
  fail:
@@ -869,7 +866,7 @@ module_ffi_define_union (emacs_env *env, ptrdiff_t nargs, emacs_value *args,
     }
 
   result = env->make_user_ptr (env, free_type, type);
-  if (result)
+  if (!env->non_local_exit_check (env))
     return result;
 
  fail:
@@ -932,10 +929,10 @@ static bool
 get_global (emacs_env *env, emacs_value *valptr, const char *name)
 {
   *valptr = env->intern (env, name);
-  if (!*valptr)
+  if (env->non_local_exit_check (env))
     return false;
   *valptr = env->make_global_ref (env, *valptr);
-  return *valptr != NULL;
+  return !env->non_local_exit_check (env);
 }
 
 static void
@@ -1004,6 +1001,8 @@ emacs_module_init (struct emacs_runtime *runtime)
     return -1;
 
   emacs_value fset = env->intern (env, "fset");
+  if (env->non_local_exit_check (env))
+    return -1;
 
   for (i = 0; i < ARRAY_SIZE (type_descriptors); ++i)
     {
@@ -1018,14 +1017,15 @@ emacs_module_init (struct emacs_runtime *runtime)
 					     exports[i].max, exports[i].subr,
 					     exports[i].docstring,
 					     NULL);
-      if (!func)
+      if (env->non_local_exit_check (env))
 	return -1;
       emacs_value sym = env->intern (env, exports[i].name);
-      if (!sym)
+      if (env->non_local_exit_check (env))
 	return -1;
 
       emacs_value args[2] = { sym, func };
-      if (!env->funcall (env, fset, 2, args))
+      env->funcall (env, fset, 2, args);
+      if (env->non_local_exit_check (env))
 	return -1;
     }
 
