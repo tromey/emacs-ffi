@@ -282,7 +282,7 @@ module_ffi_prep_cif (emacs_env *env, ptrdiff_t nargs, emacs_value args[],
 
 static bool
 convert_from_lisp (emacs_env *env, ffi_type *type, emacs_value ev,
-		   union holder *result)
+		   union holder *result, bool for_return)
 {
   // Callers must handle this.
   assert (type->type != FFI_TYPE_STRUCT);
@@ -293,6 +293,9 @@ convert_from_lisp (emacs_env *env, ffi_type *type, emacs_value ev,
       intmax_t ival = env->extract_integer (env, ev);	\
       if (env->non_local_exit_check (env))		\
 	return false;					\
+      if (for_return && type->size < sizeof (ffi_arg))	\
+	result->arg = ival;				\
+      else						\
       result->field = ival;				\
     }
 
@@ -471,7 +474,7 @@ module_ffi_call (emacs_env *env, ptrdiff_t nargs, emacs_value *args, void *ignor
 	  else
 	    {
 	      if (!convert_from_lisp (env, cif->arg_types[i], args[i],
-				      &holders[i]))
+				      &holders[i], false))
 		goto fail;
 	      values[i] = &holders[i];
 	    }
@@ -540,7 +543,7 @@ module_ffi_mem_set (emacs_env *env, ptrdiff_t nargs, emacs_value *args,
 	return NULL;
       memcpy (ptr, from, type->size);
     }
-  else if (!convert_from_lisp (env, type, args[2], ptr))
+  else if (!convert_from_lisp (env, type, args[2], ptr, false))
     return NULL;
 
   return nil;
@@ -681,7 +684,7 @@ generic_callback (ffi_cif *cif, void *ret, void **args, void *d)
 	    memcpy (ret, ptr, cif->rtype->size);
 	}
       else
-	convert_from_lisp (env, cif->rtype, value, ret);
+	convert_from_lisp (env, cif->rtype, value, ret, true);
     }
 
   env->non_local_exit_clear (env);
