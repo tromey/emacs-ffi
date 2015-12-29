@@ -19,15 +19,15 @@ ffi-module.so: ffi-module.o
 
 ffi-module.o: ffi-module.c
 
-check: ffi-module.so test.so
+check: ffi-module.so test/ffi-test.so
 	LD_LIBRARY_PATH=`pwd`:$$LD_LIBRARY_PATH; \
 	export LD_LIBRARY_PATH; \
 	$(GDB) $(CASK) exec ert-runner
 
-test.so: test.o
-	$(CC) $(LDFLAGS) -o test.so test.o
+test/ffi-test.so: test/ffi-test.o
+	$(CC) $(LDFLAGS) -o test/ffi-test.so test/ffi-test.o
 
-test.o: test.c
+test/ffi-test.o: test/ffi-test.c
 
 clean:
 	-rm -f ffi-module.o ffi-module.so test.o test.so

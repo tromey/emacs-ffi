@@ -1,8 +1,8 @@
 # ffi specifics
 ffi-module.o
 ffi-module.so
-test.o
-test.so
+test/ffi-test.o
+test/ffi-test.so
 
 # Compiled and temporary files
 *.elc
