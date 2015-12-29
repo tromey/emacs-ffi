@@ -1,4 +1,32 @@
-;; -*- lexical-binding:t -*-
+;;; ffi.el --- FFI(Foreign Function Interface) for Emacs  -*- lexical-binding: t; -*-
+
+;; Copyright (C) 2015 Tom Tromey
+
+;; Version: 0.0.1
+;; Author: Tom Tromey <om@tromey.com>
+;; Keywords: c, languages, extensions
+
+;; This program is free software; you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+;;; Commentary:
+
+;; This is an FFI for Emacs. It is based on libffi and relies on the
+;; dynamic modules work (available on the Emacs 25 branch) in order to
+;; be loaded into Emacs. It is relatively full-featured, but for the
+;; time being low-level.
+
+;;; Code:
 
 (require 'cl-macs)
 
@@ -140,3 +168,4 @@ SLOT-NAME is a symbol and TYPE is an FFI type descriptor."
       `(with-ffi-string ,first-binding ,@body))))
 
 (provide 'ffi)
+;;; ffi.el ends here
