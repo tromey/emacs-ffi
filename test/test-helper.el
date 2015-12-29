@@ -35,7 +35,11 @@
 (require 'ert)
 (require 'el-mock)
 (eval-when-compile
-    (require 'cl))
+  (require 'cl))
+(require 'undercover)
+(undercover "*.el"
+            (:exclude "*-test.el")
+            (:report-file "/tmp/undercover-report.json"))
 (require 'ffi)
 
 (provide 'test-helper)
