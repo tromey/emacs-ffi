@@ -3,7 +3,7 @@
 ;; Copyright (C) 2015 Tom Tromey
 
 ;; Version: 0.0.1
-;; Author: Tom Tromey <om@tromey.com>
+;; Author: Tom Tromey <tom@tromey.com>
 ;; Keywords: c, languages, extensions
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -168,4 +168,5 @@ SLOT-NAME is a symbol and TYPE is an FFI type descriptor."
       `(with-ffi-string ,first-binding ,@body))))
 
 (provide 'ffi)
+
 ;;; ffi.el ends here
