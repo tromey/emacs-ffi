@@ -71,7 +71,7 @@ static struct type_descriptor type_descriptors[] =
   { ":float", &ffi_type_float },
   { ":double", &ffi_type_double },
   { ":uchar", &ffi_type_uchar },
-  { ":char", &ffi_type_schar },
+  { ":schar", &ffi_type_schar },
   { ":ushort", &ffi_type_ushort },
   { ":short", &ffi_type_sshort },
   { ":uint", &ffi_type_uint },
@@ -84,7 +84,8 @@ static struct type_descriptor type_descriptors[] =
   { ":ssize_t", NULL },
   { ":ptrdiff_t", NULL },
   { ":bool", &bool_type },
-  { ":wchar_t", NULL }
+  { ":wchar_t", NULL },
+  { ":char", NULL }
 };
 
 // Description of a closure, freed by free_closure_desc.
@@ -996,6 +997,7 @@ emacs_module_init (struct emacs_runtime *runtime)
   INIT_TYPE_ALIAS (ptrdiff_t);
   INIT_TYPE_ALIAS (bool);
   INIT_TYPE_ALIAS (wchar_t);
+  INIT_TYPE_ALIAS (char);
 
   if (!get_global (env, &nil, "nil")
       || !get_global (env, &emacs_true, "t")

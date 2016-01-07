@@ -20,9 +20,12 @@ Primitive types are described using keywords:
 
 * `:float`, `:double`.  Self-explanatory.
 
-* `:uchar`, `:char`, `:ushort`, `:short`, `:uint`, `:int`, `:ulong`,
-  `:long`.  Signed or unsigned integers corresponding to the C type of
-  the same name.
+* `:char`, `:uchar`, `:schar`, `:ushort`, `:short`, `:uint`, `:int`,
+  `:ulong`, `:long`.  Signed or unsigned integers corresponding to the
+  C type of the same name.  `:char` is treated specially because
+  whether it is signed or unsigned is platform-dependent (and also
+  command-line-argument-dependent, though normally this doesn't
+  matter).
 
 * `:pointer`.  A C pointer type.  Pointers currently aren't typed, in
   the sense that they aren't differentiated based on what they point
