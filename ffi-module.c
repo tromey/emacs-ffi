@@ -85,8 +85,14 @@ static struct type_descriptor type_descriptors[] =
   { ":ptrdiff_t", NULL },
   { ":bool", &bool_type },
   { ":wchar_t", NULL },
-  { ":char", NULL }
+  { ":char", NULL },
+  { ":longlong", NULL },
+  { ":ulonglong", NULL }
 };
+
+// Hacks to make INIT_TYPE_ALIAS work ok.
+typedef long long longlong;
+typedef unsigned long long ulonglong;
 
 // Description of a closure, freed by free_closure_desc.
 struct closure_description
@@ -998,6 +1004,8 @@ emacs_module_init (struct emacs_runtime *runtime)
   INIT_TYPE_ALIAS (bool);
   INIT_TYPE_ALIAS (wchar_t);
   INIT_TYPE_ALIAS (char);
+  INIT_TYPE_ALIAS (longlong);
+  INIT_TYPE_ALIAS (ulonglong);
 
   if (!get_global (env, &nil, "nil")
       || !get_global (env, &emacs_true, "t")
