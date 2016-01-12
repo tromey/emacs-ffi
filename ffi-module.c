@@ -6,6 +6,9 @@
 #include <string.h>
 #include <assert.h>
 
+// Emacs got rid of this typedef, but it is still handy.
+typedef void (*emacs_finalizer_function) (void *);
+
 int plugin_is_GPL_compatible;
 
 static emacs_value nil;
