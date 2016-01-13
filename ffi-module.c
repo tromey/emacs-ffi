@@ -442,7 +442,8 @@ convert_to_lisp (emacs_env *env, ffi_type *type, union holder *value,
 
 /* (ffi--call cif function &rest args) */
 static emacs_value
-module_ffi_call (emacs_env *env, ptrdiff_t nargs, emacs_value *args, void *ignore)
+module_ffi_call (emacs_env *env, ptrdiff_t nargs, emacs_value *args,
+		 void *ignore)
 {
   ffi_cif *cif = unwrap_pointer (env, args[0], free_cif);
   if (!cif)
