@@ -509,9 +509,9 @@ module_ffi_call (emacs_env *env, ptrdiff_t nargs, emacs_value *args,
       result = &result_holder;
     }
 
- fail:
   if (result != &result_holder)
     free (result);
+ fail:
   free (values);
   free (holders);
 
@@ -889,12 +889,15 @@ module_ffi_define_union (emacs_env *env, ptrdiff_t nargs, emacs_value *args,
 }
 
 
+/* Function prototype for the module Lisp functions.  */
+typedef emacs_value (*emacs_subr_t) (emacs_env *, ptrdiff_t,
+                                     emacs_value [], void *);
 
 struct descriptor
 {
   const char *name;
   int min, max;
-  emacs_subr subr;
+  emacs_subr_t subr;
   const char *docstring;
 };
 
@@ -989,7 +992,7 @@ init_type_alias (const char *name, bool is_unsigned, int size)
 #define INIT_TYPE_ALIAS(Type)					\
   do								\
     {								\
-      Type val = (val) -1L;					\
+      Type val = (Type) -1L;					\
       init_type_alias (":" #Type, val > 0, sizeof (Type));	\
     }								\
   while (0)
