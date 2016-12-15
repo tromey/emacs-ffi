@@ -98,8 +98,8 @@ SLOT-NAME is a symbol and TYPE is an FFI type descriptor."
 (defmacro define-ffi-array (name type length &optional docstring)
   ;; This is a hack until libffi gives us direct support.
   (let ((type-description
-	 (apply #'ffi--define-struct (make-list (eval length)
-						(symbol-name type)))))
+	 (apply #'ffi--define-struct
+                (make-list (eval length) type))))
     `(defvar ,name ,type-description ,docstring)))
 
 (defsubst ffi-aref (array type index)
@@ -109,7 +109,7 @@ SLOT-NAME is a symbol and TYPE is an FFI type descriptor."
   (declare (indent defun))
   `(let ((,(car binding) (ffi-allocate ,@(cdr binding))))
      (unwind-protect
-	 ,@body
+         (progn ,@body)
        (ffi-free ,(car binding)))))
 
 (defmacro with-ffi-temporaries (bindings &rest body)
@@ -126,7 +126,7 @@ SLOT-NAME is a symbol and TYPE is an FFI type descriptor."
   (declare (indent defun))
   `(let ((,(car binding) (ffi-make-c-string ,@(cdr binding))))
      (unwind-protect
-	 ,@body
+         (progn ,@body)
        (ffi-free ,(car binding)))))
 
 (defmacro with-ffi-strings (bindings &rest body)
