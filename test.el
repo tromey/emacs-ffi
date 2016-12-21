@@ -97,3 +97,16 @@
   (should (eq (test-not t) nil))
   (should (eq (test-not 0) nil))
   (should (eq (test-not "hi") nil)))
+
+(defconst test-user-defined-char :char)
+
+(ert-deftest ffi-array ()
+  (should (eq (define-ffi-array arr1 :char 1024) 'arr1))
+  (should (eq (define-ffi-array arr2 test-user-defined-char 1024) 'arr2)))
+
+(ert-deftest ffi-with-ffi-multi-stat ()
+  (should (eq (with-ffi-temporary (a :int) 1 2 3) 3))
+  (should (eq (with-ffi-temporaries ((a :int) (b :int)) 1 2 3) 3))
+  (should (eq (with-ffi-string (a "test") 1 2 3) 3))
+  (should (eq (with-ffi-strings ((a "s1") (b "s2")) 1 2 3) 3)))
+
