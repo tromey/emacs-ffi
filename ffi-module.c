@@ -596,7 +596,7 @@ module_ffi_pointer_equal (emacs_env *env, ptrdiff_t nargs, emacs_value *args,
   void *ptr1 = env->get_user_ptr (env, args[0]);
   if (env->non_local_exit_check (env))
     return NULL;
-  void *ptr2 = env->get_user_ptr (env, args[0]);
+  void *ptr2 = env->get_user_ptr (env, args[1]);
   if (env->non_local_exit_check (env))
     return NULL;
   return ptr1 == ptr2 ? emacs_true : nil;
