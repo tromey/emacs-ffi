@@ -7,11 +7,8 @@
 (gv-define-simple-setter ffi--mem-ref ffi--mem-set t)
 
 (defmacro define-ffi-library (symbol name)
-  (let ((library (cl-gensym)))
-    (set library nil)
-    `(defun ,symbol ()
-       (or ,library
-	   (setq ,library (ffi--dlopen ,name))))))
+  `(defconst ,(intern (concat "ffi-" (symbol-name symbol)))
+     (ffi--dlopen ,name)))
 
 (defmacro define-ffi-function (name c-name return-type arg-types library)
   (let* (
