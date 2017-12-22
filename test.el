@@ -34,6 +34,15 @@
 (ert-deftest ffi-add ()
   (should (eq (test-add 23 -23) 0)))
 
+(defun callback-with-ffi-add-call (arg)
+	(test-add 1 arg)
+	)
+
+(ert-deftest ffi-call-callback-with-ffi-add-call ()
+  (let* ((cif (ffi--prep-cif :int [:int]))
+	 (pointer-to-callback (ffi-make-closure cif #'callback-with-ffi-add-call)))
+    (should (eq (test-call-callback pointer-to-callback) "hello"))))
+
 (ert-deftest ffi-struct-layout ()
   (let ((struct-type (ffi--define-struct :int)))
     (should (eq (ffi--type-size struct-type)
