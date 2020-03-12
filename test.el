@@ -54,7 +54,7 @@
 		(ffi--type-size :int)))
     (should (eq (ffi--type-alignment struct-type)
 		(ffi--type-alignment :int)))))
-    
+
 (ert-deftest ffi-struct-layout-offsets ()
   (let* ((types '(:pointer :int))
 	 (struct-type (apply #'ffi--define-struct types)))

@@ -18,7 +18,8 @@ EMACS_BUILDDIR = /home/tromey/Emacs/emacs
 
 LDFLAGS = -shared
 LIBS = -lffi -lltdl
-CFLAGS += -g3 -Og -finline-small-functions -shared -fPIC -I$(EMACS_BUILDDIR)/src/ -I$(EMACS_BUILDDIR)/lib/
+CFLAGS += -g3 -Og -finline-small-functions -shared -fPIC \
+  -I$(EMACS_BUILDDIR)/src/ -I$(EMACS_BUILDDIR)/lib/
 
 # Set this to debug make check.
 #GDB = gdb --args
@@ -32,7 +33,7 @@ ffi-module.o: ffi-module.c
 
 check: ffi-module.so test.so
 	LD_LIBRARY_PATH=`pwd`:$$LD_LIBRARY_PATH; \
-	export LD_LIBRARY_PATH; \
+	  export LD_LIBRARY_PATH; \
 	$(GDB) $(EMACS_BUILDDIR)/src/emacs -batch -L `pwd` -l ert -l test.el \
 	  -f ert-run-tests-batch-and-exit
 

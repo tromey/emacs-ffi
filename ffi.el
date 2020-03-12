@@ -27,8 +27,7 @@
 	   (setq ,library (ffi--dlopen ,name))))))
 
 (defmacro define-ffi-function (name c-name return-type arg-types library)
-  (let* (
-	 ;; Turn variable references into actual types; while keeping
+  (let* (;; Turn variable references into actual types; while keeping
 	 ;; keywords the same.
 	 (arg-types (mapcar #'symbol-value arg-types))
 	 (arg-names (mapcar (lambda (_ignore) (cl-gensym)) arg-types))
