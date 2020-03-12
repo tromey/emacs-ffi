@@ -43,4 +43,5 @@ test.so: test.o
 test.o: test.c
 
 clean:
-	-rm -f ffi-module.o ffi-module.so test.o test.so
+	-rm -f ffi.elc ffi-autoloads.el ffi-module.o ffi-module.so
+	-rm -f test.o test.so
