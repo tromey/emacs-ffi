@@ -1,4 +1,5 @@
 *~
+config.mk
 ffi-module.o
 ffi-module.so
 test.o

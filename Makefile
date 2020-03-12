@@ -13,8 +13,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this.  If not, see <https://www.gnu.org/licenses/>.
 
+-include config.mk
+
 # Where your dynamic-module-enabled Emacs build lies.
-EMACS_BUILDDIR = /home/tromey/Emacs/emacs
+EMACS_BUILDDIR ?= /home/tromey/Emacs/emacs
 
 LDFLAGS = -shared
 LIBS = -lffi -lltdl
