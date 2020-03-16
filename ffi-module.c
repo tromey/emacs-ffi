@@ -19,6 +19,7 @@ along with this.  If not, see <https://www.gnu.org/licenses/>.  */
 #include <ltdl.h>
 #include <string.h>
 #include <assert.h>
+#include <stdbool.h>
 
 // Emacs got rid of this typedef, but it is still handy.
 typedef void (*emacs_finalizer_function) (void *);
@@ -1003,6 +1004,8 @@ init_type_alias (const char *name, bool is_unsigned, int size)
     type_descriptors[i].type = type;
 }
 
+static bool initialized = false;
+
 #define INIT_TYPE_ALIAS(Type)					\
   do								\
     {								\
@@ -1014,6 +1017,9 @@ init_type_alias (const char *name, bool is_unsigned, int size)
 int
 emacs_module_init (struct emacs_runtime *runtime)
 {
+  if (initialized)
+    return 0;
+
   unsigned int i;
   emacs_env *env = runtime->get_environment (runtime);
 
@@ -1063,5 +1069,6 @@ emacs_module_init (struct emacs_runtime *runtime)
 	return -1;
     }
 
+  initialized = true;
   return 0;
 }
