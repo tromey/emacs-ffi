@@ -1004,6 +1004,16 @@ init_type_alias (const char *name, bool is_unsigned, int size)
     type_descriptors[i].type = type;
 }
 
+static void
+provide (emacs_env *env, const char *feature)
+{
+  emacs_value Qfeat = env->intern (env, feature);
+  emacs_value Qprovide = env->intern (env, "provide");
+  emacs_value args[] = { Qfeat };
+
+  env->funcall (env, Qprovide, 1, args);
+}
+
 static bool initialized = false;
 
 #define INIT_TYPE_ALIAS(Type)					\
@@ -1069,6 +1079,7 @@ emacs_module_init (struct emacs_runtime *runtime)
 	return -1;
     }
 
+  provide (env, "ffi-module");
   initialized = true;
   return 0;
 }
