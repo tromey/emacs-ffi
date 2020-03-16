@@ -41,7 +41,8 @@
     (set library nil)
     `(defun ,symbol ()
        (or ,library
-	   (setq ,library (ffi--dlopen ,name))))))
+	   (setq ,library
+		 (ffi--dlopen (ffi--locate-module ,name)))))))
 
 (defmacro define-ffi-function (name c-name return-type arg-types library)
   (let* (;; Turn variable references into actual types; while keeping
