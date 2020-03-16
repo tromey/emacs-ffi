@@ -36,13 +36,13 @@
 
 (gv-define-simple-setter ffi--mem-ref ffi--mem-set t)
 
-(defmacro define-ffi-library (symbol name)
+(defmacro define-ffi-library (symbol name &optional filename)
   (let ((library (cl-gensym)))
     (set library nil)
     `(defun ,symbol ()
        (or ,library
 	   (setq ,library
-		 (ffi--dlopen (ffi--locate-module ,name)))))))
+		 (ffi--dlopen (or ,filename (ffi--locate-module ,name))))))))
 
 (defmacro define-ffi-function (name c-name return-type arg-types library)
   (let* (;; Turn variable references into actual types; while keeping
