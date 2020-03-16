@@ -28,7 +28,11 @@
 
 (require 'cl-macs)
 
-(module-load (concat "ffi-module" module-file-suffix))
+(defun ffi--locate-module (name &optional nosuffix path)
+  (let ((load-suffixes (list module-file-suffix)))
+    (locate-library name)))
+
+(module-load (ffi--locate-module "ffi-module"))
 
 (gv-define-simple-setter ffi--mem-ref ffi--mem-set t)
 
