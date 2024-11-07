@@ -1,4 +1,17 @@
-;; -*- lexical-binding:t -*-
+;;; ffi.el --- FFI for Emacs  -*- lexical-binding: t; -*-
+
+;; This is is free software: you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+
+;; This is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with this.  If not, see <https://www.gnu.org/licenses/>.
 
 (require 'cl-macs)
 
@@ -140,3 +153,5 @@ SLOT-NAME is a symbol and TYPE is an FFI type descriptor."
       `(with-ffi-string ,first-binding ,@body))))
 
 (provide 'ffi)
+
+;;; ffi.el ends here
