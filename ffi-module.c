@@ -19,6 +19,7 @@ along with this.  If not, see <https://www.gnu.org/licenses/>.  */
 #include <ltdl.h>
 #include <string.h>
 #include <assert.h>
+#include <stdbool.h>
 
 // Emacs got rid of this typedef, but it is still handy.
 typedef void (*emacs_finalizer_function) (void *);
@@ -366,7 +367,7 @@ convert_from_lisp (emacs_env *env, ffi_type *type, emacs_value ev,
       // raw pointer.
       if (env->non_local_exit_check (env))
 	return false;
- 
+
       emacs_finalizer_function finalizer = env->get_user_finalizer (env, ev);
       if (env->non_local_exit_check (env))
 	return false;
@@ -1003,6 +1004,18 @@ init_type_alias (const char *name, bool is_unsigned, int size)
     type_descriptors[i].type = type;
 }
 
+static void
+provide (emacs_env *env, const char *feature)
+{
+  emacs_value Qfeat = env->intern (env, feature);
+  emacs_value Qprovide = env->intern (env, "provide");
+  emacs_value args[] = { Qfeat };
+
+  env->funcall (env, Qprovide, 1, args);
+}
+
+static bool initialized = false;
+
 #define INIT_TYPE_ALIAS(Type)					\
   do								\
     {								\
@@ -1014,6 +1027,9 @@ init_type_alias (const char *name, bool is_unsigned, int size)
 int
 emacs_module_init (struct emacs_runtime *runtime)
 {
+  if (initialized)
+    return 0;
+
   unsigned int i;
   emacs_env *env = runtime->get_environment (runtime);
 
@@ -1063,5 +1079,7 @@ emacs_module_init (struct emacs_runtime *runtime)
 	return -1;
     }
 
+  provide (env, "ffi-module");
+  initialized = true;
   return 0;
 }
