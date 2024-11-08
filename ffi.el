@@ -20,27 +20,31 @@
 (gv-define-simple-setter ffi--mem-ref ffi--mem-set t)
 
 (defmacro define-ffi-library (symbol name)
-  (let ((library (cl-gensym)))
-    (set library nil)
-    `(defun ,symbol ()
-       (or ,library
-	   (setq ,library (ffi--dlopen ,name))))))
+  `(defconst ,(intern (concat "ffi-" (symbol-name symbol)))
+     (ffi--dlopen ,name)))
 
 (defmacro define-ffi-function (name c-name return-type arg-types library)
-  (let* (
-	 ;; Turn variable references into actual types; while keeping
-	 ;; keywords the same.
-	 (arg-types (mapcar #'symbol-value arg-types))
-	 (arg-names (mapcar (lambda (_ignore) (cl-gensym)) arg-types))
-	 (arg-types (vconcat arg-types))
-	 (function (cl-gensym))
-	 (cif (ffi--prep-cif (symbol-value return-type) arg-types)))
-    (set function nil)
-    `(defun ,name (,@arg-names)
-       (unless ,function
-	 (setq ,function (ffi--dlsym ,c-name (,library))))
+  (let ((arg-names (mapcar (lambda (_ignore) (cl-gensym)) arg-types))
+        (arg-types (vconcat arg-types))
+        (function (concat "ffi-fun-" c-name))
+        (cif (concat "ffi-cif-" c-name))
+        (library (intern (concat "ffi-" (symbol-name library)))))
+    ;; Adapted from the expansion of lexical-let
+    `(let ((fun (make-symbol ,function))
+           (cif (make-symbol ,cif)))
+       (set fun (ffi--dlsym ,c-name ,library))
        ;; FIXME do we even need a separate prep?
-       (ffi--call ,cif ,function ,@arg-names))))
+       (set cif (ffi--prep-cif ,return-type ,arg-types))
+       (defalias ',name
+         (list 'lambda ',arg-names
+               (list 'funcall (lambda (cif fun ,@arg-names)
+                                (ffi--call (symbol-value cif)
+                                           (symbol-value fun)
+                                           ,@arg-names))
+                     (list 'quote cif)
+                     (list 'quote fun)
+                     ,@(cl-loop for arg in arg-names
+                                collect `(quote ,arg))))))))
 
 (defun ffi-lambda (function-pointer return-type arg-types)
   (let* ((cif (ffi--prep-cif return-type (vconcat arg-types))))
@@ -70,10 +74,10 @@
 				(cl-assert (eq (cadr slot) :type))
 				(symbol-value (cl-caddr slot)))
 			      slots))
-	 (the-type (apply definer-function field-types))
 	 (field-offsets (funcall layout-function field-types)))
-    (push `(defvar ,name ,the-type ,docstring)
-	  result-forms)
+    (push `(defvar ,name (apply #',definer-function ',field-types)
+             ,docstring)
+          result-forms)
     (cl-mapc
      (lambda (slot type offset)
        (let ((getter-name (intern (concat conc-name
@@ -110,10 +114,9 @@ SLOT-NAME is a symbol and TYPE is an FFI type descriptor."
 
 (defmacro define-ffi-array (name type length &optional docstring)
   ;; This is a hack until libffi gives us direct support.
-  (let ((type-description
-	 (apply #'ffi--define-struct
-                (make-list (eval length) (symbol-value type)))))
-    `(defvar ,name ,type-description ,docstring)))
+  `(defvar ,name (apply #'ffi--define-struct
+                        (make-list ,length ,type))
+     ,docstring))
 
 (defsubst ffi-aref (array type index)
   (ffi--mem-ref (ffi-pointer+ array (* index (ffi--type-size type))) type))
