@@ -366,7 +366,7 @@ convert_from_lisp (emacs_env *env, ffi_type *type, emacs_value ev,
       // raw pointer.
       if (env->non_local_exit_check (env))
 	return false;
- 
+
       emacs_finalizer_function finalizer = env->get_user_finalizer (env, ev);
       if (env->non_local_exit_check (env))
 	return false;

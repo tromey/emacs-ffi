@@ -1,5 +1,10 @@
 ;;; ffi.el --- FFI for Emacs  -*- lexical-binding: t; -*-
 
+;; Copyright (C) 2015-2017 Tom Tromey
+
+;; Author: Tom Tromey <tom@tromey.com>
+;; Package-Requires: ((emacs "25.1"))
+
 ;; This is is free software: you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
 ;; the Free Software Foundation, either version 3 of the License, or
@@ -12,6 +17,14 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with this.  If not, see <https://www.gnu.org/licenses/>.
+
+;;; Commentary:
+
+;; This is an FFI for Emacs.  It is based on libffi and relies on the
+;; dynamic module support in order to be loaded into Emacs.  It is
+;; relatively full-featured, but for the time being low-level.
+
+;;; Code:
 
 (require 'cl-macs)
 
@@ -27,8 +40,7 @@
 	   (setq ,library (ffi--dlopen ,name))))))
 
 (defmacro define-ffi-function (name c-name return-type arg-types library)
-  (let* (
-	 ;; Turn variable references into actual types; while keeping
+  (let* (;; Turn variable references into actual types; while keeping
 	 ;; keywords the same.
 	 (arg-types (mapcar #'symbol-value arg-types))
 	 (arg-names (mapcar (lambda (_ignore) (cl-gensym)) arg-types))
@@ -43,7 +55,7 @@
        (ffi--call ,cif ,function ,@arg-names))))
 
 (defun ffi-lambda (function-pointer return-type arg-types)
-  (let* ((cif (ffi--prep-cif return-type (vconcat arg-types))))
+  (let ((cif (ffi--prep-cif return-type (vconcat arg-types))))
     (lambda (&rest args)		; lame
       (apply #'ffi--call cif function-pointer args))))
 
